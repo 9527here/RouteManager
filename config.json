@@ -1,0 +1,22 @@
+{
+  "_comment": "action 默认参数表。key = action 名去掉 load_ 前缀（仅 load_ 系动作影响查表）。前端 /execute 只传需覆盖的参数。",
+  "scene": {
+    "prim_path": "/World"
+  },
+  "urdf": {
+    "prim_path": "/humanoid",
+    "fix_base": false,
+    "merge_fixed_joints": false,
+    "self_collision": false
+  },
+  "add_camera": {
+    "resolution": [1280, 720],
+    "focal_length": 24.0,
+    "clipping_range": [0.05, 100.0]
+  },
+  "setup_ros2_bridge": {
+    "command_topic": "/humanoid/joint_command",
+    "state_topic": "/humanoid/joint_states",
+    "node_name": "route_manager_robot"
+  }
+}
