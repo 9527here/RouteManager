@@ -1,0 +1,126 @@
+════════════════════════════════════════════════════════════════════
+  humanoid_upper_body_v3 改动说明
+  日期: 2026-09-14
+  源 CAD: ../urdf/人形上装部分9.9.urdf (只读, 永不修改)
+  交付物: urdf/humanoid_upper_body_v3.urdf
+          usd/humanoid_upper_body_v3_flat.usd  (42.7 MB)
+          config/joint_names.yaml
+          README.md (完整命名映射表 + 流水线图)
+════════════════════════════════════════════════════════════════════
+
+一、URDF 层改动 (scripts/build_isaac_urdf.py, 记录 46 处)
+
+  [结构/命名]
+  1. 包名/robot 名 -> humanoid_upper_body_v3 (纯 ASCII, 绕开 Isaac 对
+     CJK 路径的坑)
+  2. 关节名连字符 -> 下划线 (Z1-JOINT -> Z1_JOINT)
+  3. 命名规范化 (按 /home/jy/文档/urdf命名规则 v1.0 全量改名):
+        SX_Link            -> lift_top_link          (升降滑块)
+        XQ / TZ / TF       -> torso_pitch_link / head_yaw_link / head_pitch_link
+        Z1 / Y1            -> left/right_arm_base_link
+        Z2..Z7 / Y2..Y7    -> left_arm_1..6_link / right_arm_1..6_link
+        ZJ / YJ            -> left_wrist_link / right_wrist_link
+        ZQY/ZHY/YQY/YHY    -> caster_<front|rear>_<left|right>_link
+        ZQL/ZHL/YQL/YHL    -> <front|rear>_<left|right>_wheel_link
+     关节同理 (-JOINT -> _joint, 臂座固定关节按规则 3.3.4 叫
+     lift_to_left/right_arm_joint)。
+     权威映射表: scripts/naming_rules.py (build/finalize/gen_joint_config/
+     validate 四脚本共用); 网格文件名有意保留源 CAD 命名 (溯源)。
+
+  [几何/惯性]
+  4. SX_Link 坐标系重锚定到升降轴 (origin z=1.1362, 世界位姿不变)
+  5. 碰撞形状整体替换: 源 CAD 单一粗 STL -> 27 解析图元 + 53 凸包网格
+     = 80 shapes (gen_collision.py 产出, 按源名键控)
+  6. Y 臂 z 镜像修正: 右臂各关节 origin z 与左臂对齐 (3.5-6.9 mm 的
+     导出符号错误共 8 处); 12 mm 左右 y 向不对称按用户决定保留
+     (validate 的 1 个 WARN 即此, 非缺陷)
+  7. 惯量校验: 29 个张量全部正定 + 三角不等式, 总质量 119.546 kg
+
+  [关节参数]
+  8. 万向轮锁定建模: CAD 的 -90..+30 deg 转向范围 override 成 +-5 deg
+     (底盘甲板侵入 0.21 m 旋转扫掠, 真实结构转不动)
+  9. CAD 的 <limit effort="0"> 全部填真实值, effort/velocity 来自
+     joint_dynamics.json (lift 920 Nm / 臂 70 Nm / 轮 40 Nm 等)
+ 10. 坏限位修复: Z7/Y7 退化 0..0 块替换 (非追加); XQ 倒置 [3.14,0] 修正;
+     TZ/TF/ZJ/YJ 无限位的补推导表 (对称范围, 标 [SIGN UNVERIFIED])
+ 11. 全部 26 个可动关节补 <dynamics damping friction> (防 PhysX 振荡)
+
+
+二、USD 导入设置与生成链
+
+  import_to_isaac.py (isaacsim5.1 headless) 关键 ImportConfig:
+    - fix_base = False          -> movable base (自由底盘, 非 static)
+    - merge_fixed_joints = False -> 保留 2 个 fixed 臂座关节, ROS bridge
+      能看到完整 URDF 树
+    其余参数用默认。
+
+  导入器 (5.1 API 版) 有四个结构性缺陷, 全部由 finalize_usd.py 修复:
+
+    问题                                    修复                        效果
+    --------------------------------------------------------------------
+    (1) 每个 link 的 visuals/collisions     Flatten 前清 instanceable   模型不发灰
+        标成 instanceable (58 个引用        + 删 /visuals /colliders    不再卡顿
+        指向母版)                           母版 scope
+    (2) 材质挂在 payload wrapper 下         迁到 ROOT/Materials +      0 断绑
+        (flatten 后必死)                    重绑 83 处
+    (3) CollisionAPI 写在容器 Xform 上;     下放到每个 hull Mesh +     80 碰撞全
+        碰撞 prim 全是 default purpose      convexHull + purpose=guide  guide, 帧率
+        (渲染成灰壳糊在模型上)                                          恢复
+    (4) 网格不焊点 + per-point 法线         6c 段焊接 (1e-9 m 容差)    1330 万点
+        (84 B/三角形, 320 MB)               + 删 authored 法线         ->211 万,
+                                                                        320->42.7 MB
+
+  驱动参数写入 (26 个可动关节, 增益来自 drive_gains.json, per-degree
+  换算 per-radian):
+    - 轮子  x4: 自由滚设计 (2026-09-14 用户拍板 B)
+        velocity 驱动, stiffness=0, targetVelocity=0,
+        jointFriction = 1 Nm (轴承摩擦),
+        maxForce 钳到 2 Nm < 地面摩擦力矩 ~28 Nm
+        (= mu 0.5 x 轮载 293 N x 轮半径 0.19 m)
+        -> 推/拖底盘四个 castor 自由滚动不打滑; 静止时不能靠轮子自驱
+           (物理上"能锁地自驱"与"拖动自由滚"互斥), 坡道上可能缓滑。
+           这 4 个是从动轮, 不需要自驱。
+    - 万向轮 x4: position hold 0 deg
+    - 其余 18 个: position 驱动
+  PhysicsScene: 240 Hz, solver iterations 32/4, gravity -9.81
+  自检 (verify 段): 0 实例 / 82 真 Mesh / 29 body / 80 guide 凸包 /
+  0 断绑 / 0 残留法线, 任一不过即报错退出。
+
+
+三、验证结果
+
+  validate.py:        0 FAIL, 1 WARN (保留的 12 mm y 向设计决定)
+  烟雾测试 (4 s 站立): 臂下垂 0.0229 rad (1.31 deg), 底座漂移 0.51 mm
+  网格焊接无损性:      焊后 2,107,112 点 vs v2 焊后 2,109,648 点, 一致
+  轮子 B 自由滚回归 (两阶段):
+    阶段1 拖动 (强制底盘 0.5 m/s, 2 s, 行程 0.984 m):
+      四轮全滚 [−5.51, −5.01, +5.57, +4.93] rad, 无抱死无打滑
+      (改前 A 设计: [−2.22, −0.02, +2.27, +0.01] rad, 两轮抱死),
+      反推等效轮半径 0.187 m, 四轮一致
+    阶段2 速度指令 3 rad/s: 指令通路活着, 轮子转动 ~9 rad
+      (castor 对正后底盘可被带着动; 静止起步时 2 Nm < 地面 ~28 Nm,
+       不能靠轮子自驱 —— B 设计预期行为)
+  备注: A/B 在同一地面摩擦下物理互斥 —— 制动力矩 > 地面摩擦力矩才能
+  自驱, 但同样的力矩在拖动时就锁轮打滑; 从动轮选 B。
+
+
+四、当前状态与未决事项
+
+  已完成:
+    [x] URDF 命名规范化 + 全链路 (build -> validate -> gen_joint_config
+        -> import -> finalize) 重跑
+    [x] flat USD 修复 (灰模型/卡顿/轮子三连带症状) 并与 v2 已知好基线
+        对齐
+    [x] 体积优化 320 MB -> 42.7 MB
+    [x] 轮子改 B 自由滚 (2026-09-14 拍板): jointFriction 30->1 Nm,
+        驱动限扭 40->2 Nm; 拖动四轮全滚, 回归通过
+    [x] 包内 README.md (流水线图 + 完整映射表 + 设计决定)
+
+  未决:
+    (无) 坡道缓滑是 B 的已知代价, 后续若加主动驱动轮再议。
+
+  建议下一步:
+    - GUI 里 shift+拖动确认四个 castor 自由滚动 (重点验证手感)
+    - GUI 里目视确认材质/白模渲染正常
+    - 上 ROS 2/MoveIt 前按规则文档 §6 用 check_urdf 验证新命名
+════════════════════════════════════════════════════════════════════

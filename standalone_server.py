@@ -48,8 +48,10 @@ action 的默认参数（前端只传需覆盖的参数）。也可用 ``load_co
 依赖仅：fastapi、uvicorn（Isaac 环境自带，或 pip install fastapi uvicorn）。
 """
 
+import atexit
 import logging
 import os
+import signal
 import threading
 import time
 import traceback
@@ -281,7 +283,7 @@ def build_app(task_timeout=7200.0):
 # ============================================================
 
 # 默认需要等待 stage 资产加载完成的 action（可用构造参数覆盖）
-DEFAULT_LOADING_TASKS = {"load_scene", "load_car", "load_camera", "move_camera", "load_grid_map"}
+DEFAULT_LOADING_TASKS = {"load_scene", "load_urdf", "load_robot", "add_camera"}
 
 
 class IsaacTaskServer:
@@ -292,14 +294,14 @@ class IsaacTaskServer:
     executor : object
         你的执行器对象（替代 WorldManager），必须有 step()、
         simulation_app、close()，其余 action 靠反射调用同名方法。
-    host, port : HTTP 监听地址，默认 127.0.0.1:8765。
+    host, port : HTTP 监听地址，默认 127.0.0.1:18765。
     task_timeout : 单个任务等待超时秒数。
     loading_tasks : 需要等待 stage 加载完成的 action 名集合。
     run_duration : executor 没有 simulation_app 时的最长运行秒数
         （None = 一直运行，仅用于 --demo 自测）。
     """
 
-    def __init__(self, executor, host="127.0.0.1", port=8765,
+    def __init__(self, executor, host="127.0.0.1", port=18765,
                  task_timeout=7200.0, loading_tasks=None, run_duration=None):
         global _executor, _state_mgr
         self.executor = executor
@@ -313,10 +315,19 @@ class IsaacTaskServer:
         self.state_mgr = _state_mgr
         self.app = build_app(task_timeout=task_timeout)
 
+        # ---- 优雅退出状态 ----
+        self._uvicorn_server = None
+        self._shutdown_event = threading.Event()
+        self._closed = False
+        self._signal_count = 0
+
     # ---- 对外入口 ----
 
     def start(self):
         """启动 HTTP 线程并阻塞运行仿真主循环（等价于原 server.py 的 main）。"""
+        atexit.register(self._atexit_cleanup)
+        self._install_signal_handlers()
+
         logger.info(f"启动 HTTP 服务线程 (uvicorn @ {self.host}:{self.port})...")
         server_thread = threading.Thread(target=self._run_uvicorn, daemon=True)
         server_thread.start()
@@ -329,12 +340,47 @@ class IsaacTaskServer:
 
         self._run_loop()
 
+    # ---- 优雅退出 ----
+
+    def _install_signal_handlers(self):
+        """接管 SIGINT/SIGTERM/SIGHUP：第一次优雅关闭，再次收到则强制退出。
+
+        必须在 SimulationApp 创建之后注册（覆盖 Kit 自带的信号处理），
+        保证 Ctrl+C / 关终端 / kill 都能走到 executor.close() 释放端口。
+        """
+        def _handle(signum, frame):
+            self._signal_count += 1
+            if self._signal_count == 1:
+                logger.warning(f"收到退出信号 {signum}，开始优雅关闭（再次收到将强制退出）...")
+                self.shutdown()
+            else:
+                logger.warning("再次收到退出信号，强制退出")
+                os._exit(1)
+
+        for sig in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP):
+            try:
+                signal.signal(sig, _handle)
+            except (ValueError, OSError, AttributeError):
+                pass  # 非主线程注册或平台不支持（如 Windows 无 SIGHUP）时跳过
+
+    def shutdown(self):
+        """通知 uvicorn 与仿真主循环退出；资源释放统一由 _run_loop 的 finally 做。"""
+        self._shutdown_event.set()
+        if self._uvicorn_server is not None:
+            self._uvicorn_server.should_exit = True
+
+    def _atexit_cleanup(self):
+        """兜底：无论从哪条路径退出，确保 HTTP 服务先停、仿真再关。"""
+        if not self._closed:
+            self.shutdown()
+
     # ---- 内部实现 ----
 
     def _run_uvicorn(self):
         config = uvicorn.Config(self.app, host=self.host, port=self.port,
                                 log_level="info", loop="asyncio")
-        uvicorn.Server(config).run()
+        self._uvicorn_server = uvicorn.Server(config)
+        self._uvicorn_server.run()
 
     def _is_running(self):
         """仿真是否继续运行：有 simulation_app 用 is_running()，demo 模式用时间限制。"""
@@ -385,7 +431,7 @@ class IsaacTaskServer:
         """主循环：轮询状态机，PENDING 则在主线程执行任务。"""
         self._start_time = time.time()
         try:
-            while self._is_running():
+            while self._is_running() and not self._shutdown_event.is_set():
                 state, _ = self.state_mgr.get_status()
                 if state == TaskState.PENDING:
                     self.state_mgr.set_running()
@@ -414,6 +460,9 @@ class IsaacTaskServer:
         except KeyboardInterrupt:
             logger.warning("收到键盘中断信号，正在关闭...")
         finally:
+            self._closed = True
+            logger.info("正在停止 HTTP 服务...")
+            self.shutdown()
             close_hook = getattr(self.executor, "close", None)
             if callable(close_hook):
                 close_hook()
@@ -484,7 +533,7 @@ if __name__ == "__main__":
         CONFIG_DEFAULTS["hello"] = {"name": "demo-default"}
 
         import sys
-        port = int(sys.argv[sys.argv.index("--port") + 1]) if "--port" in sys.argv else 8765
+        port = int(sys.argv[sys.argv.index("--port") + 1]) if "--port" in sys.argv else 18765
         server = IsaacTaskServer(FakeExecutor(), port=port, run_duration=600)
         server.start()
     else:

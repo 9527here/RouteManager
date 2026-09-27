@@ -1,0 +1,21 @@
+<?xml version="1.0"?>
+<!-- RViz preview with interactive joint sliders.  Useful for eyeballing the
+     joint limits and the left/right symmetry fix before importing into Isaac.
+         roslaunch humanoid_upper_body_v3 display.launch                          -->
+<launch>
+  <arg name="gui" default="true"/>
+
+  <param name="robot_description"
+         textfile="$(find humanoid_upper_body_v3)/urdf/humanoid_upper_body_v3.urdf"/>
+
+  <node name="joint_state_publisher_gui" pkg="joint_state_publisher_gui"
+        type="joint_state_publisher_gui" if="$(arg gui)"/>
+  <node name="joint_state_publisher" pkg="joint_state_publisher"
+        type="joint_state_publisher" unless="$(arg gui)"/>
+
+  <node name="robot_state_publisher" pkg="robot_state_publisher"
+        type="robot_state_publisher"/>
+
+  <node name="rviz" pkg="rviz" type="rviz" required="true"
+        args="-d $(find humanoid_upper_body_v3)/launch/urdf.rviz"/>
+</launch>

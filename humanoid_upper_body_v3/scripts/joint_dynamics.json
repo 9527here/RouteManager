@@ -1,0 +1,158 @@
+{
+ "SX-JOINT": {
+  "effort": 920.0,
+  "velocity": 0.1,
+  "damping": 200.0,
+  "friction": 40.0
+ },
+ "XQ-JOINT": {
+  "effort": 310.0,
+  "velocity": 1.0,
+  "damping": 15.5,
+  "friction": 3.1
+ },
+ "TZ-JOINT": {
+  "effort": 10.0,
+  "velocity": 2.0,
+  "damping": 0.5,
+  "friction": 0.1
+ },
+ "TF-JOINT": {
+  "effort": 10.0,
+  "velocity": 2.0,
+  "damping": 0.5,
+  "friction": 0.1
+ },
+ "Z2-JOINT": {
+  "effort": 70.0,
+  "velocity": 2.5,
+  "damping": 1.4,
+  "friction": 0.28
+ },
+ "Z3-JOINT": {
+  "effort": 60.0,
+  "velocity": 2.5,
+  "damping": 1.2,
+  "friction": 0.24
+ },
+ "Z4-JOINT": {
+  "effort": 40.0,
+  "velocity": 2.5,
+  "damping": 0.8,
+  "friction": 0.16
+ },
+ "Z5-JOINT": {
+  "effort": 30.0,
+  "velocity": 2.5,
+  "damping": 0.6,
+  "friction": 0.12
+ },
+ "Z6-JOINT": {
+  "effort": 20.0,
+  "velocity": 2.5,
+  "damping": 0.5,
+  "friction": 0.1
+ },
+ "Z7-JOINT": {
+  "effort": 10.0,
+  "velocity": 2.5,
+  "damping": 0.5,
+  "friction": 0.1
+ },
+ "ZJ-JOINT": {
+  "effort": 10.0,
+  "velocity": 2.5,
+  "damping": 0.5,
+  "friction": 0.1
+ },
+ "Y2-JOINT": {
+  "effort": 70.0,
+  "velocity": 2.5,
+  "damping": 1.4,
+  "friction": 0.28
+ },
+ "Y3-JOINT": {
+  "effort": 60.0,
+  "velocity": 2.5,
+  "damping": 1.2,
+  "friction": 0.24
+ },
+ "Y4-JOINT": {
+  "effort": 40.0,
+  "velocity": 2.5,
+  "damping": 0.8,
+  "friction": 0.16
+ },
+ "Y5-JOINT": {
+  "effort": 30.0,
+  "velocity": 2.5,
+  "damping": 0.6,
+  "friction": 0.12
+ },
+ "Y6-JOINT": {
+  "effort": 20.0,
+  "velocity": 2.5,
+  "damping": 0.5,
+  "friction": 0.1
+ },
+ "Y7-JOINT": {
+  "effort": 10.0,
+  "velocity": 2.5,
+  "damping": 0.5,
+  "friction": 0.1
+ },
+ "YJ-JOINT": {
+  "effort": 10.0,
+  "velocity": 2.5,
+  "damping": 0.5,
+  "friction": 0.1
+ },
+ "ZQY-JOINT": {
+  "effort": 20.0,
+  "velocity": 3.0,
+  "damping": 0.5,
+  "friction": 0.2
+ },
+ "ZHY-JOINT": {
+  "effort": 20.0,
+  "velocity": 3.0,
+  "damping": 0.5,
+  "friction": 0.2
+ },
+ "YQY-JOINT": {
+  "effort": 20.0,
+  "velocity": 3.0,
+  "damping": 0.5,
+  "friction": 0.2
+ },
+ "YHY-JOINT": {
+  "effort": 20.0,
+  "velocity": 3.0,
+  "damping": 0.5,
+  "friction": 0.2
+ },
+ "ZQL-JOINT": {
+  "effort": 40.0,
+  "velocity": 12.0,
+  "damping": 0.5,
+  "friction": 0.1
+ },
+ "ZHL-JOINT": {
+  "effort": 40.0,
+  "velocity": 12.0,
+  "damping": 0.5,
+  "friction": 0.1
+ },
+ "YQL-JOINT": {
+  "effort": 40.0,
+  "velocity": 12.0,
+  "damping": 0.5,
+  "friction": 0.1
+ },
+ "YHL-JOINT": {
+  "effort": 40.0,
+  "velocity": 12.0,
+  "damping": 0.5,
+  "friction": 0.1
+ }
+}

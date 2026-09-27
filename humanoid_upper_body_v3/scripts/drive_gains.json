@@ -1,0 +1,132 @@
+{
+ "SX-JOINT": {
+  "stiffness": 182356.4,
+  "damping": 5207.53,
+  "target": "position"
+ },
+ "XQ-JOINT": {
+  "stiffness": 6020.8,
+  "damping": 431.65,
+  "target": "position"
+ },
+ "TZ-JOINT": {
+  "stiffness": 82.0,
+  "damping": 2.49,
+  "target": "position"
+ },
+ "TF-JOINT": {
+  "stiffness": 48.3,
+  "damping": 1.23,
+  "target": "position"
+ },
+ "Z2-JOINT": {
+  "stiffness": 1309.2,
+  "damping": 87.34,
+  "target": "position"
+ },
+ "Z3-JOINT": {
+  "stiffness": 1139.1,
+  "damping": 74.64,
+  "target": "position"
+ },
+ "Z4-JOINT": {
+  "stiffness": 610.5,
+  "damping": 34.73,
+  "target": "position"
+ },
+ "Z5-JOINT": {
+  "stiffness": 502.8,
+  "damping": 27.81,
+  "target": "position"
+ },
+ "Z6-JOINT": {
+  "stiffness": 244.4,
+  "damping": 11.05,
+  "target": "position"
+ },
+ "Z7-JOINT": {
+  "stiffness": 193.1,
+  "damping": 8.3,
+  "target": "position"
+ },
+ "ZJ-JOINT": {
+  "stiffness": 18.9,
+  "damping": 0.37,
+  "target": "position"
+ },
+ "Y2-JOINT": {
+  "stiffness": 1309.2,
+  "damping": 87.34,
+  "target": "position"
+ },
+ "Y3-JOINT": {
+  "stiffness": 1139.1,
+  "damping": 74.64,
+  "target": "position"
+ },
+ "Y4-JOINT": {
+  "stiffness": 610.5,
+  "damping": 34.73,
+  "target": "position"
+ },
+ "Y5-JOINT": {
+  "stiffness": 502.8,
+  "damping": 27.81,
+  "target": "position"
+ },
+ "Y6-JOINT": {
+  "stiffness": 244.4,
+  "damping": 11.05,
+  "target": "position"
+ },
+ "Y7-JOINT": {
+  "stiffness": 193.1,
+  "damping": 8.3,
+  "target": "position"
+ },
+ "YJ-JOINT": {
+  "stiffness": 18.9,
+  "damping": 0.37,
+  "target": "position"
+ },
+ "ZQY-JOINT": {
+  "stiffness": 635.5,
+  "damping": 27.87,
+  "target": "position"
+ },
+ "ZQL-JOINT": {
+  "stiffness": 0.0,
+  "damping": 5714.29,
+  "target": "velocity"
+ },
+ "ZHY-JOINT": {
+  "stiffness": 635.5,
+  "damping": 27.87,
+  "target": "position"
+ },
+ "ZHL-JOINT": {
+  "stiffness": 0.0,
+  "damping": 5714.29,
+  "target": "velocity"
+ },
+ "YQY-JOINT": {
+  "stiffness": 635.4,
+  "damping": 27.87,
+  "target": "position"
+ },
+ "YQL-JOINT": {
+  "stiffness": 0.0,
+  "damping": 5714.29,
+  "target": "velocity"
+ },
+ "YHY-JOINT": {
+  "stiffness": 635.4,
+  "damping": 27.86,
+  "target": "position"
+ },
+ "YHL-JOINT": {
+  "stiffness": 0.0,
+  "damping": 5714.29,
+  "target": "velocity"
+ }
+}

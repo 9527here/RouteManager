@@ -1,0 +1,711 @@
+{
+  "base_link": [
+    {
+      "type": "box",
+      "size": [
+        0.878,
+        0.37575,
+        0.05
+      ],
+      "origin": [
+        0.0,
+        -0.001375,
+        -0.255
+      ],
+      "name": "under_y-0.28"
+    },
+    {
+      "type": "box",
+      "size": [
+        0.0495,
+        0.5162,
+        0.05
+      ],
+      "origin": [
+        0.44025,
+        0.0,
+        -0.255
+      ],
+      "name": "bumper_xp_-0.28"
+    },
+    {
+      "type": "box",
+      "size": [
+        0.0495,
+        0.5162,
+        0.05
+      ],
+      "origin": [
+        -0.44025,
+        0.0,
+        -0.255
+      ],
+      "name": "bumper_xm_-0.28"
+    },
+    {
+      "type": "box",
+      "size": [
+        0.697929,
+        0.378702,
+        0.05
+      ],
+      "origin": [
+        -0.0,
+        0.0,
+        -0.205
+      ],
+      "name": "under_y-0.23"
+    },
+    {
+      "type": "box",
+      "size": [
+        0.698929,
+        0.376903,
+        0.05
+      ],
+      "origin": [
+        -0.0005,
+        -0.0,
+        -0.155
+      ],
+      "name": "under_y-0.18"
+    },
+    {
+      "type": "box",
+      "size": [
+        0.792429,
+        0.3765,
+        0.05
+      ],
+      "origin": [
+        -0.04725,
+        0.00015,
+        -0.105
+      ],
+      "name": "under_y-0.13"
+    },
+    {
+      "type": "box",
+      "size": [
+        0.028464,
+        0.21,
+        0.05
+      ],
+      "origin": [
+        -0.429232,
+        0.0,
+        -0.105
+      ],
+      "name": "bumper_xm_-0.13"
+    },
+    {
+      "type": "box",
+      "size": [
+        0.795605,
+        0.377822,
+        0.05
+      ],
+      "origin": [
+        -0.048838,
+        0.000811,
+        -0.055
+      ],
+      "name": "under_y-0.08"
+    },
+    {
+      "type": "box",
+      "size": [
+        0.031638,
+        0.268308,
+        0.05
+      ],
+      "origin": [
+        -0.430822,
+        -0.029555,
+        -0.055
+      ],
+      "name": "bumper_xm_-0.08"
+    },
+    {
+      "type": "box",
+      "size": [
+        0.776429,
+        0.377,
+        0.025
+      ],
+      "origin": [
+        -0.03925,
+        -0.0,
+        -0.0175
+      ],
+      "name": "under_y-0.03"
+    },
+    {
+      "type": "box",
+      "size": [
+        0.01,
+        0.212,
+        0.025
+      ],
+      "origin": [
+        -0.422465,
+        0.0,
+        -0.0175
+      ],
+      "name": "bumper_xm_-0.03"
+    },
+    {
+      "type": "box",
+      "size": [
+        0.782495,
+        0.584999,
+        0.075
+      ],
+      "origin": [
+        -0.052217,
+        0.0,
+        0.0325
+      ],
+      "name": "chassis_-0.01"
+    },
+    {
+      "type": "box",
+      "size": [
+        0.777765,
+        0.585,
+        0.08
+      ],
+      "origin": [
+        -0.054582,
+        0.0,
+        0.11
+      ],
+      "name": "chassis_+0.07"
+    },
+    {
+      "type": "box",
+      "size": [
+        0.703246,
+        0.5855,
+        0.075
+      ],
+      "origin": [
+        -0.051372,
+        0.0,
+        0.1875
+      ],
+      "name": "chassis_+0.15"
+    },
+    {
+      "type": "box",
+      "size": [
+        0.150501,
+        0.093351,
+        0.045
+      ],
+      "origin": [
+        0.01975,
+        -0.000325,
+        0.2475
+      ],
+      "name": "chassis_+0.23"
+    },
+    {
+      "type": "box",
+      "size": [
+        0.0245,
+        0.03,
+        0.65
+      ],
+      "origin": [
+        0.082751,
+        -1e-06,
+        0.595
+      ],
+      "name": "chassis_+0.27"
+    },
+    {
+      "type": "box",
+      "size": [
+        0.1355,
+        0.036,
+        0.1
+      ],
+      "origin": [
+        0.027251,
+        -1e-06,
+        0.97
+      ],
+      "name": "chassis_+0.92"
+    },
+    {
+      "type": "box",
+      "size": [
+        0.0245,
+        0.03,
+        0.045
+      ],
+      "origin": [
+        0.082751,
+        -1e-06,
+        1.0425
+      ],
+      "name": "chassis_+1.02"
+    }
+  ],
+  "SX_Link": [
+    {
+      "type": "box",
+      "size": [
+        0.0382,
+        0.0193,
+        0.87
+      ],
+      "origin": [
+        -0.070906,
+        -0.030551,
+        -0.6812
+      ],
+      "name": "slab0"
+    },
+    {
+      "type": "box",
+      "size": [
+        0.3901,
+        0.216418,
+        0.22
+      ],
+      "origin": [
+        0.105044,
+        0.001268,
+        -0.1362
+      ],
+      "name": "slab1"
+    }
+  ],
+  "XQ": [
+    {
+      "type": "box",
+      "size": [
+        0.15,
+        0.21004,
+        0.164
+      ],
+      "origin": [
+        0.0,
+        -1.5e-05,
+        -0.011
+      ],
+      "name": "slab0"
+    },
+    {
+      "type": "box",
+      "size": [
+        0.18305,
+        0.26404,
+        0.117
+      ],
+      "origin": [
+        -0.005475,
+        -1.5e-05,
+        0.1295
+      ],
+      "name": "slab1"
+    },
+    {
+      "type": "box",
+      "size": [
+        0.176507,
+        0.109735,
+        0.135
+      ],
+      "origin": [
+        0.035753,
+        -0.000995,
+        0.2555
+      ],
+      "name": "slab2"
+    }
+  ],
+  "ZQL": [
+    {
+      "type": "cylinder",
+      "radius": 0.159395,
+      "length": 0.093601,
+      "origin": [
+        0.0,
+        -0.046801,
+        0.0
+      ],
+      "rpy": [
+        1.570796,
+        0.0,
+        0.0
+      ],
+      "name": "wheel"
+    }
+  ],
+  "ZHL": [
+    {
+      "type": "cylinder",
+      "radius": 0.159395,
+      "length": 0.093601,
+      "origin": [
+        0.0,
+        -0.046801,
+        0.0
+      ],
+      "rpy": [
+        1.570796,
+        0.0,
+        0.0
+      ],
+      "name": "wheel"
+    }
+  ],
+  "YQL": [
+    {
+      "type": "cylinder",
+      "radius": 0.159395,
+      "length": 0.093601,
+      "origin": [
+        0.0,
+        0.046801,
+        0.0
+      ],
+      "rpy": [
+        1.570796,
+        0.0,
+        0.0
+      ],
+      "name": "wheel"
+    }
+  ],
+  "YHL": [
+    {
+      "type": "cylinder",
+      "radius": 0.159395,
+      "length": 0.093601,
+      "origin": [
+        0.0,
+        0.046801,
+        0.0
+      ],
+      "rpy": [
+        1.570796,
+        0.0,
+        0.0
+      ],
+      "name": "wheel"
+    }
+  ],
+  "ZQY": [
+    {
+      "type": "mesh",
+      "file": "ZQY_0.STL",
+      "name": "hull0"
+    },
+    {
+      "type": "mesh",
+      "file": "ZQY_1.STL",
+      "name": "hull1"
+    },
+    {
+      "type": "mesh",
+      "file": "ZQY_2.STL",
+      "name": "hull2"
+    },
+    {
+      "type": "mesh",
+      "file": "ZQY_3.STL",
+      "name": "hull3"
+    }
+  ],
+  "ZHY": [
+    {
+      "type": "mesh",
+      "file": "ZHY_0.STL",
+      "name": "hull0"
+    },
+    {
+      "type": "mesh",
+      "file": "ZHY_1.STL",
+      "name": "hull1"
+    },
+    {
+      "type": "mesh",
+      "file": "ZHY_2.STL",
+      "name": "hull2"
+    },
+    {
+      "type": "mesh",
+      "file": "ZHY_3.STL",
+      "name": "hull3"
+    }
+  ],
+  "YQY": [
+    {
+      "type": "mesh",
+      "file": "YQY_0.STL",
+      "name": "hull0"
+    },
+    {
+      "type": "mesh",
+      "file": "YQY_1.STL",
+      "name": "hull1"
+    },
+    {
+      "type": "mesh",
+      "file": "YQY_2.STL",
+      "name": "hull2"
+    },
+    {
+      "type": "mesh",
+      "file": "YQY_3.STL",
+      "name": "hull3"
+    }
+  ],
+  "YHY": [
+    {
+      "type": "mesh",
+      "file": "YHY_0.STL",
+      "name": "hull0"
+    },
+    {
+      "type": "mesh",
+      "file": "YHY_1.STL",
+      "name": "hull1"
+    },
+    {
+      "type": "mesh",
+      "file": "YHY_2.STL",
+      "name": "hull2"
+    },
+    {
+      "type": "mesh",
+      "file": "YHY_3.STL",
+      "name": "hull3"
+    }
+  ],
+  "TZ": [
+    {
+      "type": "mesh",
+      "file": "TZ.STL",
+      "name": "hull0"
+    }
+  ],
+  "TF": [
+    {
+      "type": "mesh",
+      "file": "TF_0.STL",
+      "name": "hull0"
+    },
+    {
+      "type": "mesh",
+      "file": "TF_1.STL",
+      "name": "hull1"
+    },
+    {
+      "type": "mesh",
+      "file": "TF_2.STL",
+      "name": "hull2"
+    },
+    {
+      "type": "mesh",
+      "file": "TF_3.STL",
+      "name": "hull3"
+    }
+  ],
+  "Z1": [
+    {
+      "type": "mesh",
+      "file": "Z1.STL",
+      "name": "hull0"
+    }
+  ],
+  "Z2": [
+    {
+      "type": "mesh",
+      "file": "Z2.STL",
+      "name": "hull0"
+    }
+  ],
+  "Z3": [
+    {
+      "type": "mesh",
+      "file": "Z3.STL",
+      "name": "hull0"
+    }
+  ],
+  "Z4": [
+    {
+      "type": "mesh",
+      "file": "Z4.STL",
+      "name": "hull0"
+    }
+  ],
+  "Z5": [
+    {
+      "type": "mesh",
+      "file": "Z5.STL",
+      "name": "hull0"
+    }
+  ],
+  "Z6": [
+    {
+      "type": "mesh",
+      "file": "Z6.STL",
+      "name": "hull0"
+    }
+  ],
+  "Z7": [
+    {
+      "type": "mesh",
+      "file": "Z7_0.STL",
+      "name": "hull0"
+    },
+    {
+      "type": "mesh",
+      "file": "Z7_1.STL",
+      "name": "hull1"
+    },
+    {
+      "type": "mesh",
+      "file": "Z7_2.STL",
+      "name": "hull2"
+    },
+    {
+      "type": "mesh",
+      "file": "Z7_3.STL",
+      "name": "hull3"
+    }
+  ],
+  "ZJ": [
+    {
+      "type": "mesh",
+      "file": "ZJ_0.STL",
+      "name": "hull0"
+    },
+    {
+      "type": "mesh",
+      "file": "ZJ_1.STL",
+      "name": "hull1"
+    },
+    {
+      "type": "mesh",
+      "file": "ZJ_2.STL",
+      "name": "hull2"
+    },
+    {
+      "type": "mesh",
+      "file": "ZJ_3.STL",
+      "name": "hull3"
+    },
+    {
+      "type": "mesh",
+      "file": "ZJ_4.STL",
+      "name": "hull4"
+    },
+    {
+      "type": "mesh",
+      "file": "ZJ_5.STL",
+      "name": "hull5"
+    }
+  ],
+  "Y1": [
+    {
+      "type": "mesh",
+      "file": "Y1.STL",
+      "name": "hull0"
+    }
+  ],
+  "Y2": [
+    {
+      "type": "mesh",
+      "file": "Y2.STL",
+      "name": "hull0"
+    }
+  ],
+  "Y3": [
+    {
+      "type": "mesh",
+      "file": "Y3.STL",
+      "name": "hull0"
+    }
+  ],
+  "Y4": [
+    {
+      "type": "mesh",
+      "file": "Y4.STL",
+      "name": "hull0"
+    }
+  ],
+  "Y5": [
+    {
+      "type": "mesh",
+      "file": "Y5.STL",
+      "name": "hull0"
+    }
+  ],
+  "Y6": [
+    {
+      "type": "mesh",
+      "file": "Y6.STL",
+      "name": "hull0"
+    }
+  ],
+  "Y7": [
+    {
+      "type": "mesh",
+      "file": "Y7_0.STL",
+      "name": "hull0"
+    },
+    {
+      "type": "mesh",
+      "file": "Y7_1.STL",
+      "name": "hull1"
+    },
+    {
+      "type": "mesh",
+      "file": "Y7_2.STL",
+      "name": "hull2"
+    },
+    {
+      "type": "mesh",
+      "file": "Y7_3.STL",
+      "name": "hull3"
+    }
+  ],
+  "YJ": [
+    {
+      "type": "mesh",
+      "file": "YJ_0.STL",
+      "name": "hull0"
+    },
+    {
+      "type": "mesh",
+      "file": "YJ_1.STL",
+      "name": "hull1"
+    },
+    {
+      "type": "mesh",
+      "file": "YJ_2.STL",
+      "name": "hull2"
+    },
+    {
+      "type": "mesh",
+      "file": "YJ_3.STL",
+      "name": "hull3"
+    },
+    {
+      "type": "mesh",
+      "file": "YJ_4.STL",
+      "name": "hull4"
+    },
+    {
+      "type": "mesh",
+      "file": "YJ_5.STL",
+      "name": "hull5"
+    }
+  ]
+}

@@ -28,13 +28,21 @@ class SimEnv:
 
         ext_manager = omni.kit.app.get_app().get_extension_manager()
 
-        # ROS2 Bridge：相机/关节状态话题发布、cmd_vel 订阅都靠它
+        # ROS2 Bridge：关节指令/状态话题的收发都靠它。
+        # headless / 无 ROS 环境下插件可能加载失败 —— 降级运行（ROS2 相关
+        # action 会报"未初始化"），不让整个服务起不来
         logger.info("正在加载 ROS2 Bridge 插件...")
-        ext_manager.set_extension_enabled_immediate("isaacsim.ros2.bridge", True)
+        try:
+            ext_manager.set_extension_enabled_immediate("isaacsim.ros2.bridge", True)
+        except Exception as e:
+            logger.warning(f"ROS2 Bridge 插件加载失败（ROS2 功能降级，不影响仿真）: {e}")
 
         # Debug Draw：调试可视化（骨架、路径、bbox）
-        logger.info("正在加载 Debug Draw 插件...")
-        ext_manager.set_extension_enabled_immediate("isaacsim.util.debug_draw", True)
+        try:
+            logger.info("正在加载 Debug Draw 插件...")
+            ext_manager.set_extension_enabled_immediate("isaacsim.util.debug_draw", True)
+        except Exception as e:
+            logger.debug(f"Debug Draw 插件加载跳过: {e}")
 
         # Omnigraph：ROS2 Camera Helper 等 graph 节点的底层
         for ext in ["omni.graph", "omni.graph.nodes", "omni.graph.action", "omni.graph.ui"]:
