@@ -26,3 +26,8 @@ env/
 *.log
 *.tmp
 .pid
+# ---- 大型生成资产（URDF 导入产物 / 超大网格），不入库，本地保留 ----
+humanoid_upper_body_v3/usd/
+humanoid_upper_body_v3/urdf/*/configuration/
+humanoid_upper_body_v3/meshes/visual/base_link.STL
+assets/RM65-6FB-V/urdf/configuration/
