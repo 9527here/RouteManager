@@ -3,6 +3,13 @@
   "scene": {
     "prim_path": "/World"
   },
+  "render": {
+    "_comment": "主循环自动渲染频率：interval=5 表示每 5 个物理步渲染一次；ROUTE_MANAGER_RENDER_INTERVAL 可覆盖",
+    "interval": 2
+  },
+  "set_render_interval": {
+    "interval": 2
+  },
   "home_pose": {
     "_comment": "启动后各关节的目标角度（rad），key=关节名。手臂塌下去说明 URDF 零位=双臂下垂，在此填入想要的基础姿态即可；留空 = 保持全 0"
   },
@@ -20,7 +27,10 @@
     "max_step": 0.08,
     "deadzone": 0.01,
     "grip_open": 0.7,
-    "rate_hz": 50.0
+    "rate_hz": 50.0,
+    "vr_frame_interval": 2,
+    "head_yaw_sign": 1.0,
+    "head_pitch_sign": 1.0
   },
   "base_teleop": {
     "_comment": "WASD 底盘控制（skid-steer）。left_sign/right_sign 处理 URDF 左右轮轴镜像，实测若倒退/自旋改这两个符号；timeout 秒收不到指令自动刹停",
@@ -33,10 +43,15 @@
     "max_wz": 1.6
   },
   "robot": {
-    "name": "v3_ctag2f120_cameras",
+    "name": "v3_ctag2f120_rm65",
     "presets": {
       "humanoid_upper_body_v3_ctag2f120": {
         "usd_path": "/home/jy/datasets/vla_data/L1_制作资产/载体设备/humanbody_urdf/humanoid_upper_body_v3/urdf/humanoid_upper_body_v3_ctag2f120/humanoid_upper_body_v3_ctag2f120.usd",
+        "prim_path": "/humanoid"
+      },
+      "v3_ctag2f120_rm65": {
+        "_comment": "官方 RM65-6FB-V 六轴臂重建版(scripts/build_rm65_arm.py 生成)。urdf_path 走 load_urdf 自动转换(2026-10-10 修好 5.x 两步流程); 转换产物 usd 与 URDF 同目录",
+        "urdf_path": "/home/jy/datasets/vla_data/L1_制作资产/载体设备/humanbody_urdf/humanoid_upper_body_v3/urdf/humanoid_upper_body_v3_ctag2f120_rm65_isaac.urdf",
         "prim_path": "/humanoid"
       },
       "v3_ctag2f120_cameras": {
@@ -52,14 +67,24 @@
     "self_collision": false
   },
   "add_camera": {
-    "resolution": [1280, 720],
+    "resolution": [
+      1280,
+      720
+    ],
     "focal_length": 24.0,
-    "clipping_range": [0.05, 100.0]
+    "clipping_range": [
+      0.05,
+      100.0
+    ]
   },
   "setup_ros2_bridge": {
     "command_topic": "/humanoid/joint_command",
     "state_topic": "/humanoid/joint_states",
     "node_name": "route_manager_robot",
     "publish_rate": 50.0
+  },
+  "gripper": {
+    "_comment": "夹爪行程(mm): position 1000 对应的开口。仿真 ctag2f120 实测满行程 86.2; 真机 rm 夹爪是 70。可移植的是 position/1000 这个比例，不是毫米数",
+    "stroke_mm": 86.2
   }
 }

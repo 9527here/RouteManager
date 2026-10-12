@@ -1,0 +1,28 @@
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# ---- 虚拟环境 ----
+.venv/
+venv/
+env/
+.conda/
+
+# ---- 编辑器 / 系统 ----
+.idea/
+.vscode/
+*.swp
+.DS_Store
+
+# ---- Claude Code 个人设置（共享设置走 .claude/settings.json）----
+.claude/settings.local.json
+
+# ---- 运行时产物 ----
+*.log
+*.tmp
+.pid

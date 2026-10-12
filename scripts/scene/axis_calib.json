@@ -1,0 +1,25 @@
+{
+ "phi": {
+  "left": -0.04517634257265951,
+  "right": -0.04517634257265951
+ },
+ "ts": "2026-09-29 15:49:17",
+ "sides": {
+  "left": {
+   "horiz_m": 0.245,
+   "vert_m": 0.155,
+   "yaw_r_deg": -0.9,
+   "ok": true,
+   "phi_deg": -2.5,
+   "phi_head_deg": -19.8
+  },
+  "right": {
+   "horiz_m": 0.259,
+   "vert_m": 0.137,
+   "yaw_r_deg": -0.9,
+   "ok": true,
+   "phi_deg": -2.7,
+   "phi_head_deg": -19.8
+  }
+ }
+}

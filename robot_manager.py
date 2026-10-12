@@ -16,6 +16,9 @@ import time
 
 import numpy as np
 
+import arm_kin
+import grasp_planner
+import gripper_model
 from ros2_bridge.controller import Ros2JointController, lerp, smoothstep
 
 logger = logging.getLogger("route_manager.robot")
@@ -42,6 +45,21 @@ def _serialize_camera_image(rgb):
 _BASE_WHEEL_JOINTS = ("front_left_wheel_joint", "front_right_wheel_joint",
                       "rear_left_wheel_joint", "rear_right_wheel_joint")
 
+_STATIC_CAMERAS = (
+    ("head_zed_x", 960, 600),
+    ("head_surround_left", 1920, 1200),
+    ("head_surround_right", 1920, 1200),
+    ("head_surround_rear", 1920, 1200),
+    ("chest_gemini_335lg", 1280, 800),
+    ("left_wrist_gemini_335lg", 1280, 800),
+    ("right_wrist_gemini_335lg", 1280, 800),
+    ("tv_cam", 1280, 800),
+)
+#: 需要 camera.initialize()(建 render product)的相机 —— 只有 initialize 过的
+#: 才能 get_camera_image 出图。腕部相机是抓取/操作调试最关键的一路(头部相机
+#: 近处会被自己的胸部挡住), tv_cam 是第三人称全局视角。
+_STATIC_RENDER_CAMERAS = {"head_zed_x", "left_wrist_gemini_335lg", "tv_cam"}
+
 
 class RobotManager:
     """执行器：URDF 导入、相机、ROS2 bridge 的动作实现。"""
@@ -63,7 +81,27 @@ class RobotManager:
         self._ros_controller = None
         self._vr_teleop = None
         self._config = self._load_config()
+        render_cfg = self._config.get("render") or {}
+        raw_render_interval = os.environ.get(
+            "ROUTE_MANAGER_RENDER_INTERVAL",
+            render_cfg.get("interval", 5),
+        )
+        self._render_interval = max(1, int(raw_render_interval))
+        self._render_counter = 0
         self._mimic_map = None       # 软件 mimic 表 {leader_idx: [(follower_idx, gearing)]}
+        self._mimic_targets = None   # {leader_idx: 最近一次指令目标}
+        # 夹爪全开时的主动关节角(rad)，与 URDF 主动关节上限 0.7 一致；
+        # start_vr_teleop 会用 config.json teleop.grip_open 覆盖，保证
+        # VR 扳机 / set_gripper_position / 真机 rm 指令三者同一刻度。
+        self._vr_grip_open = float(
+            (self._config.get("teleop") or {}).get("grip_open", 0.7))
+        # 夹爪行程(mm)：position 1000 ↔ 该值。仿真 86.2（实测满行程），
+        # 真机 rm 夹爪 70 —— 见 gripper_model.STROKE_MM 的说明。
+        _stroke = (self._config.get("gripper") or {}).get("stroke_mm")
+        if _stroke:
+            gripper_model.STROKE_MM = float(_stroke)
+        self._auto_pick = None         # 自动抓取状态机（VR 菜单键触发）
+        self._last_auto_pick = None    # 上一次自动抓取的结果摘要
         self._base_cmd = None          # 底盘速度指令 {"vx","wz","t"}（set_base_velocity）
         self._wheel_pos_target = None  # 驱动轮积分位置目标（虚拟速度模式）
         self._base_cfg = self._config.get("base_teleop") or {}
@@ -80,16 +118,164 @@ class RobotManager:
     def start(self):
         self.world.reset()
 
-    def step(self, render=True):
-        """主循环一帧：ROS2 指令 → 插值推进 → 软件 mimic → 底盘速度 → VR 目标 → 物理步进。"""
+    def step(self, render=None):
+        """主循环一帧：ROS2 指令 → 插值推进 → 软件 mimic → 底盘速度 → VR 目标 → 物理步进。
+
+        render=None 表示主循环自动降频渲染（默认每 5 个物理步渲染一次）；
+       显式传 True/False 时按调用方要求执行，供调试脚本和离线渲染使用。
+        """
         self._process_ros_commands()
         self._advance_motion()
-        self._apply_software_mimic()
         self._update_base_velocity()
         if self._vr_teleop is not None:
+            # VR 左手 **X 键** → 启动自动抓取（一次性，边沿触发）
+            try:
+                if self._vr_teleop.consume_menu_request():
+                    res = self.auto_pick(side="left")
+                    logger.info(f"X 键触发自动抓取: {res}")
+            except Exception as e:
+                logger.warning(f"X 键处理异常: {e!r}")
             self._vr_teleop.apply_pending()   # VR 手柄目标（主线程施加）
-        self.world.step(render=render)
+        self._auto_pick_step()
+        # mimic 放在 VR 之后: 用**当帧**的主动关节指令算跟随关节, 零滞后。
+        # (放在 VR 之前会晚一帧, 夹爪高速开合时能看到跟随指头慢半拍)
+        self._apply_software_mimic()
+        should_render = True if render is None else bool(render)
+        if render is None and self._render_interval > 1:
+            self._render_counter += 1
+            if self._render_counter < self._render_interval:
+                should_render = False
+            else:
+                self._render_counter = 0
+        self.world.step(render=should_render)
         self._publish_ros_state()
+
+    def set_render_interval(self, interval: int):
+        """运行时调整自动渲染频率；1 表示每个物理步都渲染。"""
+        self._render_interval = max(1, int(interval))
+        self._render_counter = 0
+        return {"interval": self._render_interval}
+
+    def get_render_settings(self):
+        return {
+            "interval": self._render_interval,
+            "mode": "auto",
+            "env_override": "ROUTE_MANAGER_RENDER_INTERVAL",
+        }
+
+    def _register_static_cameras(self):
+        """把静态场景里已有的 Camera prim 包装成可读图传感器。"""
+        import omni.usd
+        from isaacsim.sensors.camera import Camera
+
+        stage = omni.usd.get_context().get_stage()
+        registered = []
+        for name, width, height in _STATIC_CAMERAS:
+            path = f"/World/cams/{name}"
+            if path in self._cameras or not stage.GetPrimAtPath(path).IsValid():
+                continue
+            camera = Camera(
+                prim_path=path,
+                name=f"static_{name}",
+                resolution=(width, height),
+            )
+            if name in _STATIC_RENDER_CAMERAS:
+                camera.initialize()
+            self._cameras[path] = camera
+            registered.append(path)
+        if registered:
+            logger.info(f"静态相机已注册: {registered}")
+
+    def _apply_static_camera_offsets(self):
+        """按已标定偏移把静态相机放到对应机器人连杆上。"""
+        import json
+        import omni.usd
+        from pxr import Gf
+
+        offset_path = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)),
+            "scripts", "scene", "cam_follow_offsets.json",
+        )
+        if not os.path.exists(offset_path) or self.articulation is None:
+            return
+        try:
+            with open(offset_path, encoding="utf-8") as file:
+                offsets = json.load(file)
+            stage = omni.usd.get_context().get_stage()
+            link_transforms = np.asarray(
+                self.articulation._physics_view.get_link_transforms()
+            ).reshape(-1, 7)
+            for name, config in offsets.items():
+                path = f"/World/cams/{name}"
+                prim = stage.GetPrimAtPath(path)
+                if not prim.IsValid() or "parent" not in config or "off" not in config:
+                    continue
+                link_index = int(self.articulation.get_link_index(config["parent"]))
+                if link_index < 0 or link_index >= link_transforms.shape[0]:
+                    continue
+                position, quaternion = np.split(link_transforms[link_index], [3])
+                quaternion = quaternion / max(float(np.linalg.norm(quaternion)), 1e-9)
+                w, x, y, z = quaternion
+                rotation = np.array([
+                    [1 - 2 * (y * y + z * z), 2 * (x * y - w * z),
+                     2 * (x * z + w * y)],
+                    [2 * (x * y + w * z), 1 - 2 * (x * x + z * z),
+                     2 * (y * z - w * x)],
+                    [2 * (x * z - w * y), 2 * (y * z + w * x),
+                     1 - 2 * (x * x + y * y)],
+                ])
+                link_pose = np.eye(4)
+                link_pose[:3, :3] = rotation
+                link_pose[:3, 3] = position
+                camera_pose = link_pose @ np.asarray(config["off"], dtype=float)
+                camera_quaternion = self._matrix_to_quaternion(camera_pose[:3, :3])
+                prim.GetAttribute("xformOp:translate").Set(Gf.Vec3d(
+                    *map(float, camera_pose[:3, 3])))
+                prim.GetAttribute("xformOp:orient").Set(Gf.Quatd(
+                    float(camera_quaternion[0]),
+                    Gf.Vec3d(*map(float, camera_quaternion[1:])),
+                ))
+        except Exception as e:
+            logger.warning(f"静态相机偏移应用失败: {e}")
+
+    @staticmethod
+    def _matrix_to_quaternion(rotation):
+        trace = float(np.trace(rotation))
+        if trace > 0.0:
+            scale = np.sqrt(trace + 1.0) * 2.0
+            return np.array([
+                0.25 * scale,
+                (rotation[2, 1] - rotation[1, 2]) / scale,
+                (rotation[0, 2] - rotation[2, 0]) / scale,
+                (rotation[1, 0] - rotation[0, 1]) / scale,
+            ])
+        index = int(np.argmax(np.diag(rotation)))
+        if index == 0:
+            scale = np.sqrt(1.0 + rotation[0, 0]
+                            - rotation[1, 1] - rotation[2, 2]) * 2.0
+            return np.array([
+                (rotation[2, 1] - rotation[1, 2]) / scale,
+                0.25 * scale,
+                (rotation[0, 1] + rotation[1, 0]) / scale,
+                (rotation[0, 2] + rotation[2, 0]) / scale,
+            ])
+        if index == 1:
+            scale = np.sqrt(1.0 + rotation[1, 1]
+                            - rotation[0, 0] - rotation[2, 2]) * 2.0
+            return np.array([
+                (rotation[0, 2] - rotation[2, 0]) / scale,
+                (rotation[0, 1] + rotation[1, 0]) / scale,
+                0.25 * scale,
+                (rotation[1, 2] + rotation[2, 1]) / scale,
+            ])
+        scale = np.sqrt(1.0 + rotation[2, 2]
+                        - rotation[0, 0] - rotation[1, 1]) * 2.0
+        return np.array([
+            (rotation[1, 0] - rotation[0, 1]) / scale,
+            (rotation[0, 2] + rotation[2, 0]) / scale,
+            (rotation[1, 2] + rotation[2, 1]) / scale,
+            0.25 * scale,
+        ])
 
     def close(self):
         if self._ros_controller is not None:
@@ -110,7 +296,32 @@ class RobotManager:
             logger.info(f"场景已加载: {usd_path} -> {prim_path}")
         else:
             self._create_ground_plane()
-            logger.info("已创建默认地平面")
+            self._load_static_scene()
+            logger.info("已创建默认地平面 + 静态场景")
+
+    def _load_static_scene(self):
+        """加载烘焙的静态场景(相机/桌子/抓取物体/参考球)。
+
+        必须在机器人之前加载: 机器人加载后任何 prim 编辑(加相机/桌子)都会让
+        物理后端失效, 之后 set_joint_position_targets / get_jacobians / 底盘
+        读位置全部报 "Failed to ... from backend"。文件由
+        scripts/scene/gen_static_usda.py 生成(值取自一次摆放好的场景)。
+        """
+        import omni.usd
+        from pxr import Sdf
+
+        path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                            "scripts", "scene", "static_scene.usda")
+        if not os.path.exists(path):
+            logger.warning(f"静态场景文件不存在, 跳过: {path}")
+            return
+        try:
+            stage = omni.usd.get_context().get_stage()
+            world = stage.GetPrimAtPath("/World")
+            world.GetReferences().AddReference(path, Sdf.Path("/World"))
+            logger.info(f"静态场景已加载: {path}")
+        except Exception as e:
+            logger.warning(f"静态场景加载失败(不影响机器人): {e}")
 
     def _create_ground_plane(self):
         """创建地平面（带视觉网格与碰撞）。幂等：已存在则跳过（重复 load_scene 不再报错）。"""
@@ -126,6 +337,8 @@ class RobotManager:
             plane = GroundPlane(prim_path="/World/ground_plane", size=20.0,
                                 color=np.array([0.5, 0.5, 0.5]))
             self.world.scene.add(plane)
+            # 地面高度保持默认 z=0: 扫描场景改为整体下移使其地面贴合 z=0
+            # (2026-09-29: 抬地面会让机器人跟着升高、桌子留原地 → 不对齐)
         except Exception as e:
             # 兜底：仅碰撞平面（无视觉），保证任何 Isaac 版本都可用
             logger.warning(f"GroundPlane 创建失败，退化为纯碰撞平面: {e}")
@@ -135,6 +348,38 @@ class RobotManager:
             plane = UsdGeom.Plane.Define(stage, "/World/ground_plane/col")
             UsdPhysics.CollisionAPI.Apply(plane.GetPrim())
         logger.info("已创建默认地平面")
+
+    #: 场景摩擦系数。**不设的话 PhysX 默认值在本场景实测 ≈0.05**（几乎无摩擦）：
+    #: 夹爪压住物体也夹不住（一抬就滑脱）、机器人轮子在地面打滑（实测底座
+    #: 被机械臂反作用力推走 0.2m，目标跑出手臂可达范围）。2026-10-09 实测。
+    _FRICTION = 1.0
+
+    def _ensure_friction_material(self):
+        """建一个高摩擦 PhysicsMaterial 并绑到地面（幂等）。
+
+        场景物体(桌子/方块/圆柱)的绑定在 `scripts/scene/static_scene.usda` 里；
+        这里只补运行时创建的地面。夹爪指垫在机器人资产里，PhysX 按两侧材质
+        取平均，地面/物体有 1.0 就够。
+        """
+        import omni.usd
+        from pxr import Usd, UsdShade, UsdPhysics
+
+        stage = omni.usd.get_context().get_stage()
+        mpath = "/World/PhysicsMaterials/friction_mat"
+        mat = UsdShade.Material.Define(stage, mpath)
+        mapi = UsdPhysics.MaterialAPI.Apply(mat.GetPrim())
+        mapi.CreateStaticFrictionAttr(self._FRICTION)
+        mapi.CreateDynamicFrictionAttr(self._FRICTION)
+        mapi.CreateRestitutionAttr(0.0)
+        bound = []
+        for path in ("/World/ground_plane", "/World/ground_plane/geom",
+                     "/World/ground_plane/collisionPlane",
+                     "/World/ground_plane/col"):
+            p = stage.GetPrimAtPath(path)
+            if p.IsValid():
+                UsdShade.MaterialBindingAPI.Apply(p).Bind(mat)
+                bound.append(path)
+        logger.info(f"摩擦材质 {self._FRICTION} 已绑定: {bound}")
 
     def _ensure_default_environment(self):
         """确保场景有灯光和地面（幂等）。只加载机器人时 GUI 会因无光源全黑，
@@ -152,6 +397,10 @@ class RobotManager:
             sun.CreateIntensityAttr(500.0)
             logger.info("已创建默认灯光（DomeLight + DistantLight）")
         self._create_ground_plane()
+        try:
+            self._ensure_friction_material()
+        except Exception as e:
+            logger.warning(f"摩擦材质创建失败: {e!r}")
 
     # ==================== 软件 mimic ====================
 
@@ -184,41 +433,107 @@ class RobotManager:
                 entries.append((names.index(n), g))
             mapping[names.index(leader)] = entries
         self._mimic_map = mapping or None
-        self._mimic_smooth = None
+        self._mimic_targets = None
         if self._mimic_map:
             n_followers = sum(len(v) for v in mapping.values())
             logger.info(f"软件 mimic 已启用: {len(mapping)} 个主动关节, "
-                        f"{n_followers} 个跟随关节")
+                f"{n_followers} 个跟随关节")
+            self._tune_gripper_drives()
 
-    def _apply_software_mimic(self):
-        """每帧：跟随关节位置目标 = gearing × 主动关节实际角度。
-        目标做指数平滑（防每帧量化跳变喂进刚性驱动引起高频嗡鸣）。"""
+    #: 夹爪关节驱动上限力矩(N·m)。资产里**主动关节只有 20、跟随关节 30**，
+    #: 主动关节反而更弱 → 被 12 个跟随关节按各自目标"反锁"，实测夹爪只能闭到
+    #: leader≈0.35(开口≈41mm)就卡死，60mm 的物体根本夹不到。统一提到 60 后
+    #: 空载往返扫描完全重合、可闭到底(leader≈0.003，开口≈0.7mm)。
+    _GRIPPER_MAX_FORCE = 60.0
+
+    def _tune_gripper_drives(self):
+        """统一夹爪关节驱动力矩上限。
+
+        必须在物理视图健康时调用(load_scene/load_robot 之后即可)。
+        """
+        try:
+            names = list(self.articulation.dof_names)
+            idx = [i for i, n in enumerate(names) if "gripper" in n]
+            if not idx:
+                return
+            view = self.articulation._physics_view
+            mxf = np.asarray(view.get_dof_max_forces()).reshape(-1).copy()
+            before = sorted({round(float(mxf[i]), 1) for i in idx})
+            mxf[idx] = self._GRIPPER_MAX_FORCE
+            view.set_dof_max_forces(mxf.reshape(1, -1), [0])
+            logger.info(f"夹爪驱动上限力矩 → {self._GRIPPER_MAX_FORCE} N·m "
+                        f"({len(idx)} 个关节; 之前 {before})")
+        except Exception as e:
+            logger.warning(f"夹爪驱动调参失败(夹爪可能闭不到底): {e!r}")
+
+    def _apply_software_mimic(self, command_positions=None):
+        """按主动关节的指令目标更新跟随关节目标。
+
+        取值的优先级：VR 全量目标数组 → **指令目标**(get_dof_position_targets)
+        → 实测位置。用"指令目标"而不是"实测角度"是关键：实测角带物理噪声，
+        回灌成目标会被位置驱动放大成高频抽动；而指令是我们的写出去的值，干净。
+
+        每帧都要重算：曾经的实现用 `_mimic_targets is not None` 提前 return，
+        结果跟随关节只在第一帧算过一次就永久冻结在初值(≈0)，主关节单独转动
+        → 连杆脱节、手指完全不动(2026-10-08 实测)。写回仍然只在变化时发生。
+        """
         if not self._mimic_map:
             return
-        try:
-            pos = np.asarray(self.articulation.get_joint_positions()).reshape(-1)
-        except Exception:
+        names = list(self.articulation.dof_names)
+
+        if command_positions is None:
+            vr_q = getattr(self._vr_teleop, "_q_all", None) \
+                if self._vr_teleop is not None else None
+            if vr_q is not None and len(vr_q) == len(names):
+                command_positions = vr_q
+            else:
+                command_positions = None
+                try:
+                    tgt = np.asarray(
+                        self.articulation._physics_view
+                        .get_dof_position_targets()).reshape(-1)
+                    if tgt.size == len(names) and np.isfinite(tgt).all():
+                        command_positions = tgt
+                except Exception:
+                    command_positions = None
+                if command_positions is None:
+                    try:
+                        command_positions = np.asarray(
+                            self.articulation.get_joint_positions()).reshape(-1)
+                    except Exception:
+                        return
+
+        vals = np.asarray(command_positions, dtype=np.float64).reshape(-1)
+        if vals.size != len(names) or np.isnan(vals).any():
             return
-        if np.isnan(pos).any():
-            return   # 求解器已爆，跳过（不喂 NaN）
-        if not hasattr(self, "_mimic_smooth") or self._mimic_smooth is None:
-            self._mimic_smooth = {}
-        alpha = 0.35   # 平滑系数：0.35 ≈ 3~4 帧时间常数，50Hz 下 ~70ms
+
+        if self._mimic_targets is None:
+            self._mimic_targets = {}
+
         for leader_idx, entries in self._mimic_map.items():
-            leader_val = float(pos[leader_idx])
+            leader_target = float(vals[leader_idx])
+            previous = self._mimic_targets.get(leader_idx)
+            if previous is not None and np.isclose(
+                    previous, leader_target, rtol=0.0, atol=1e-6):
+                continue
+
             idxs = [i for i, _ in entries]
-            raw = np.asarray([leader_val * g for _, g in entries],
+            raw = np.asarray([leader_target * g for _, g in entries],
                              dtype=np.float32)
-            key = tuple(idxs)
-            prev = self._mimic_smooth.get(key)
-            tgt = raw if prev is None or prev.shape != raw.shape \
-                else (prev + alpha * (raw - prev)).astype(np.float32)
-            self._mimic_smooth[key] = tgt
             try:
                 self.articulation.set_joint_position_targets(
-                    tgt.reshape(1, -1), joint_indices=idxs)
+                    raw.reshape(1, -1), joint_indices=idxs)
             except Exception:
-                pass
+                # 缓存**只在写成功后**更新: 失败(如物理视图暂时不可用)时
+                # 下一帧还会重试；曾经先写缓存再写关节, 一次失败就永久放弃。
+                continue
+            self._mimic_targets[leader_idx] = leader_target
+            # 同步到 VR 全量写入数组，防止 apply_pending 的 full-write
+            # 用 home_q 初值覆盖 follower 目标（这是夹爪只动一根指头的根因）
+            if (self._vr_teleop is not None
+                    and self._vr_teleop._q_all is not None):
+                self._vr_teleop._q_all[leader_idx] = np.float32(leader_target)
+                self._vr_teleop._q_all[idxs] = raw
 
     # ==================== URDF ====================
 
@@ -253,11 +568,52 @@ class RobotManager:
         import_config.merge_fixed_joints = merge_fixed_joints
         import_config.self_collision = self_collision
         import_config.import_inertia_tensor = True
-        # 位置驱动（DRIVE_ANGLE）：可以直接 set_joint_positions 控制关节
-        import_config.default_drive_type = _urdf.UrdfJointTarget.DRIVE_ANGLE
+        # 位置驱动：可以直接 set_joint_positions 控制关节
+        # (Isaac 5.1: 枚举 UrdfJointTargetType.JOINT_DRIVE_POSITION;
+        #  旧版是 UrdfJointTarget.DRIVE_ANGLE)
+        try:
+            import_config.default_drive_type = _urdf.UrdfJointTargetType.JOINT_DRIVE_POSITION
+        except AttributeError:
+            import_config.default_drive_type = _urdf.UrdfJointTarget.DRIVE_ANGLE
 
-        result = urdf_interface.parse_urdf(urdf_path, dest_path, import_config)
+        # Isaac 5.x 两步流程: parse_urdf(目录, 文件名, cfg) 只内存解析;
+        # import_robot 落盘 USD 并返回 articulation root
+        # (4.x 的 parse_urdf(urdf_path, dest_path, cfg) 会直接落盘并挂 stage)
+        urdf_dir, urdf_file = os.path.split(os.path.abspath(urdf_path))
+        urdf_robot = urdf_interface.parse_urdf(urdf_dir, urdf_file, import_config)
+        root_in_file = urdf_interface.import_robot(urdf_dir, urdf_file, urdf_robot,
+                                                   import_config, dest_path, True)
+        # 5.x 产物不带 defaultPrim —— 不补写的话挂载引用会 Unresolved reference。
+        # defaultPrim 必须取顶层 Xform（lt10 实测）：指向 articulation root
+        # （base_link）的嵌套 defaultPrim 会让 PhysX 展开异常甚至 segfault。
+        # 代价是挂载后多一层目录：<prim_path>/base_link/<link>，
+        # articulation root 实际路径 = prim_path + basename(root_in_file)。
+        from pxr import Usd as _Usd
+        prod = _Usd.Stage.Open(dest_path)
+        if prod is not None and not prod.GetRootLayer().HasDefaultPrim():
+            tops = prod.GetPseudoRoot().GetAllChildren()
+            if tops:
+                prod.SetDefaultPrim(tops[0])
+                prod.GetRootLayer().Save()
+                logger.info(f"已补写 USD defaultPrim: {tops[0].GetPath()}")
+        result = None
         logger.info(f"URDF 已转换为 USD: {dest_path}")
+        # FK/IK 的链来源必须跟着实际加载的模型走（臂可能是 6 轴 RM65 重建版，
+        # 而 arm_kin 默认指向 7 轴旧 URDF）。不同步会让抓取规划形状对不上、
+        # VR IK 被关节顺序安全闸停用。见 arm_kin.set_urdf 的注释。
+        try:
+            arm_kin.set_urdf(urdf_path)
+            logger.info(f"FK 链来源已切换: {urdf_path}")
+        except Exception as e:
+            logger.warning(f"切换 FK 链来源失败(保持原样): {e}")
+
+        # 转换后增益烘焙: URDF 无 stiffness 概念、官方臂无 dynamics, 直转产物
+        # damping≈0 会纯弹簧振铃。URDF 同目录 <stem>.gains.json 存在时按关节名
+        # 烘 stiffness/damping 进 USD (值=USD 级, 见 scene-friction/bake_damping
+        # 记忆: 物理 damping ≈ USD 值 × 57.3, 生成侧已折算)
+        gains_path = os.path.splitext(urdf_path)[0] + ".gains.json"
+        if os.path.exists(gains_path):
+            self._bake_joint_gains(dest_path, gains_path)
 
         # 不同 Isaac 版本的 parse_urdf 可能已自动挂到 stage（result.prim_path），
         # 也可能只落盘 —— 统一确保以用户指定的 prim_path 存在于场景中
@@ -270,22 +626,35 @@ class RobotManager:
                 stage.GetPrimAtPath(staged_path).IsValid()):
             add_reference_to_stage(dest_path, prim_path)
             staged_path = prim_path
+            # defaultPrim=顶层包装 Xform 时, articulation root 在其 base_link 子层
+            if root_in_file:
+                cand = f"{prim_path}/{os.path.basename(root_in_file.rstrip('/'))}"
+                if stage.GetPrimAtPath(cand).IsValid():
+                    staged_path = cand
 
         self.robot_prim_path = staged_path
 
+        # 物理必须先运行: 干净场景直接 load_urdf 时, tensor 后端未启动会让
+        # Articulation 构造里的 _physics_view 断言炸 backend=None
+        if not self.world.is_playing():
+            self.world.reset()
+        # 夹爪 mimic 链增益修正(与 _load_robot_usd 对齐, 需在 Articulation 创建前)
+        self._fix_gripper_joint_gains(staged_path)
         # 包装为 Articulation 以便控制关节
         # 位置传参：兼容 4.x(prim_path) / 5.x(prim_paths_expr) 两种构造签名
         self.articulation = Articulation(staged_path, name="humanoid")
         self.world.scene.add(self.articulation)
-        # 确保物理已启动并完成初始化 —— 之后 dof_names / set_joint_positions /
-        # ROS2 指令闭环都立即可用
-        if not self.world.is_playing():
-            self.world.reset()
+        # 再次 reset 让新 articulation 进入 tensor 视图 —— 之后 dof_names /
+        # set_joint_positions / ROS2 指令闭环都立即可用
+        self.world.reset()
         self.articulation.initialize()
         self._ensure_default_environment()
         self._build_mimic_map()
         self._apply_home_pose()
+        self._register_static_cameras()
+        self._apply_static_camera_offsets()
         self._motion = None   # 换机器人后旧插值作废
+        self._auto_pick = None  # 换机器人后旧的自动抓取状态也作废
 
         joint_names = list(self.articulation.dof_names) if self.articulation else []
         logger.info(f"机器人已加载: {staged_path}，关节数: {len(joint_names)}")
@@ -313,6 +682,748 @@ class RobotManager:
     def get_joint_positions(self):
         self._require_robot()
         return {"positions": self._joint_positions_flat()}
+
+    # ==================== 夹爪（睿尔曼 rm_driver 语义） ====================
+
+    #: 主动关节(URDF 里唯一的非 mimic 夹爪关节), 其余 11 个由软件 mimic 跟随
+    _GRIPPER_LEADER = {"left": "left_gripper_right_2_joint",
+                       "right": "right_gripper_right_2_joint"}
+
+    def set_gripper_position(self, side: str = "both", position: float = 1000,
+                             fraction: float = None):
+        """夹爪指令，**睿尔曼语义**：position 1~1000 ↔ 开口 0~70mm(1000=全开)。
+
+        与真机 rm_driver 的 `{ns}/set_gripper_position_cmd` 同参同语义，
+        所以同一套上层代码（VR 遥操作/抓取脚本）在仿真与真机之间不用改数。
+        关节侧只写 **主动关节**，其余 11 个跟随关节由 `_apply_software_mimic`
+        按 URDF mimic 链（±1 / -0.15）同一帧补齐——这样连杆不会脱节。
+
+        :param side: left / right / both
+        :param position: rm 单位 1~1000（1000=全开）
+        :param fraction: 直接给 0~1 **开口**比例（优先于 position，VR 内部用）。
+            注意是开口比例、不是主动关节角比例 —— 两者经标定表换算，中间段能差 30%。
+        """
+        self._require_robot()
+        if fraction is None:
+            frac = (float(position) - 1.0) / 999.0
+        else:
+            frac = float(fraction)
+        frac = min(max(frac, 0.0), 1.0)
+
+        # 比例 → 主动关节角：走实测标定表，不按线性缩放。开口与关节角是
+        # 四连杆的非线性关系，线性近似在中间段能差 5mm 以上——抓取时足以
+        # 让指垫压根碰不到物体。
+        target = gripper_model.leader_for_fraction(frac)
+        names = list(self.articulation.dof_names)
+        sides = ("left", "right") if side == "both" else (side,)
+        done = {}
+        for s in sides:
+            leader = self._GRIPPER_LEADER.get(s)
+            if not leader or leader not in names:
+                continue
+            self.articulation.set_joint_position_targets(
+                np.asarray([[target]], dtype=np.float32),
+                joint_indices=[names.index(leader)])
+            done[s] = round(target, 5)
+        # 立刻补跟随关节(不等下一帧 step), 保证外部单次调用也是一个刚体
+        self._mimic_targets = None
+        self._apply_software_mimic()
+        return {"status": "ok", "side": side, "fraction": round(frac, 4),
+                "position": int(round(1 + frac * 999)), "leader_target": done}
+
+    def get_gripper_position(self, side: str = "right"):
+        """回读夹爪开口：主动关节角 → rm 单位(1~1000) 与比例。"""
+        self._require_robot()
+        names = list(self.articulation.dof_names)
+        leader = self._GRIPPER_LEADER.get(side)
+        if not leader or leader not in names:
+            raise ValueError(f"未找到夹爪主动关节: {leader}")
+        pos = self._joint_positions_flat()
+        ang = float(pos[names.index(leader)])
+        frac = gripper_model.fraction_for_leader(ang)
+        return {"side": side, "angle_rad": round(ang, 5),
+                "opening_mm": round(gripper_model.opening_mm_for_leader(ang), 2),
+                "fraction": round(frac, 4),
+                "position": int(round(1 + frac * 999))}
+
+    # ==================== 自动抓取（VR 左手菜单键触发） ====================
+
+    #: /World 下可抓物体的 prim 名前缀
+    _GRASP_OBJ_PREFIXES = ("cube_", "cyl_", "obj_", "box_")
+
+    #: 自动抓取默认抓的物体（黄色方块）。用户指定"就一直只随机黄色物体位置"，
+    #: 所以不再随机挑物体，只随机它的落点；其余物体一律挪到桌面远端停放。
+    _GRASP_DEFAULT_OBJECT = "cube_c"
+
+    def _grasp_link_T(self, link):
+        """连杆世界位姿，列向量约定 4x4（USD 是行向量约定，转置）。"""
+        import omni.usd
+        from pxr import Usd, UsdGeom
+
+        st = omni.usd.get_context().get_stage()
+        p = st.GetPrimAtPath(f"{self.robot_prim_path}/{link}")
+        m = UsdGeom.Xformable(p).ComputeLocalToWorldTransform(
+            Usd.TimeCode.Default())
+        return np.array([[float(m[i][j]) for j in range(4)]
+                         for i in range(4)]).T
+
+    def _grasp_probe(self, side):
+        """抓取规划要的实测：基座/末端/指垫位姿 + 手臂关节角与**仿真实测限位**。"""
+        names = list(self.articulation.dof_names)
+        q = np.asarray(self.articulation.get_joint_positions()).reshape(-1)
+        lim = np.asarray(self.articulation.get_dof_limits()).reshape(-1, 2)
+        arm = [f"{side}_arm_{i}_joint" for i in range(1, 7)]
+        if f"{side}_wrist_joint" in names:
+            arm.append(f"{side}_wrist_joint")
+        idx = [names.index(n) for n in arm]
+        return {
+            "T_ab": self._grasp_link_T(f"{side}_arm_base_link"),
+            "T_ee": self._grasp_link_T(f"{side}_gripper_base_link"),
+            "pad_r": self._grasp_link_T(f"{side}_gripper_right_pad_link")[:3, 3],
+            "pad_l": self._grasp_link_T(f"{side}_gripper_left_pad_link")[:3, 3],
+            "arm_names": arm,
+            "arm_q": q[idx],
+            "arm_limits": lim[idx],
+        }
+
+    def _grasp_find_object(self, tcp, max_dist=0.45,
+                           min_w=0.005, max_w=0.075):
+        """离 tcp 最近、且尺寸在夹爪行程内的可抓物体（/World 下的刚体）。"""
+        import omni.usd
+        from pxr import Usd, UsdGeom, UsdPhysics
+
+        st = omni.usd.get_context().get_stage()
+        root = st.GetPrimAtPath("/World")
+        if not root.IsValid():
+            return None
+        bb = UsdGeom.BBoxCache(Usd.TimeCode.Default(), [UsdGeom.Tokens.default_])
+        best = None
+        for p in root.GetChildren():
+            if not p.GetName().startswith(self._GRASP_OBJ_PREFIXES):
+                continue
+            if not p.HasAPI(UsdPhysics.RigidBodyAPI):
+                continue
+            r = bb.ComputeWorldBound(p).ComputeAlignedRange()
+            if r.IsEmpty():
+                continue
+            lo, hi = np.array(r.GetMin()), np.array(r.GetMax())
+            size = self._object_true_size(p)
+            if size is None:
+                size = hi - lo
+            w = float(min(size[0], size[1]))
+            if not (min_w <= w <= max_w):
+                continue
+            c = 0.5 * (lo + hi)
+            d = float(np.linalg.norm(c - tcp))
+            if d > max_dist:
+                continue
+            if best is None or d < best["dist"]:
+                best = {"name": p.GetName(), "center": c, "size": size,
+                        "dist": d}
+        return best
+
+    def _object_true_size(self, prim):
+        """物体的**真实**尺寸(米)，不是 AABB。
+
+        AABB 会被朝向撑大（70mm 的方块转 5° 量出来 75.6mm），拿它当夹持宽度
+        会算出过大的开口 → 指垫碰不到物体。Cube/Cylinder 直接从 size/scale 算。
+        """
+        import omni.usd
+        from pxr import UsdGeom
+
+        try:
+            sc = np.array([1.0, 1.0, 1.0])
+            xf = UsdGeom.Xformable(prim)
+            for op in xf.GetOrderedXformOps():
+                if op.GetOpName() == "xformOp:scale":
+                    sc = np.abs(np.array(op.Get(), dtype=float))
+                    break
+            tn = str(prim.GetTypeName())
+            if tn == "Cube":
+                a = prim.GetAttribute("size")
+                s = float(a.Get()) if a and a.IsValid() else 1.0
+                return np.array([s, s, s]) * sc
+            if tn == "Cylinder":
+                r = prim.GetAttribute("radius")
+                h = prim.GetAttribute("height")
+                rv = float(r.Get()) if r and r.IsValid() else 1.0
+                hv = float(h.Get()) if h and h.IsValid() else 1.0
+                return np.array([2 * rv, 2 * rv, hv]) * sc
+        except Exception:
+            pass
+        return None
+
+    #: 机器人底盘在桌面正前方的标准位姿（场景默认位）。X 键抓取第一步会送回来。
+    _TABLE_POSE = ((0.0, 0.0, 0.3295), (1.0, 0.0, 0.0, 0.0))
+
+    def _reset_robot_to_table(self):
+        """把机器人底盘送回桌面正前方的标准位姿，手臂回 home。
+
+        用户要求：按 X 抓取前先"复位到桌前"，否则用 VR 把机器人开走之后
+        随机摆放的可达范围就对不上了。
+        """
+        pos, quat = self._TABLE_POSE
+        try:
+            self.articulation.set_world_poses(
+                positions=np.asarray([pos], dtype=np.float64),
+                orientations=np.asarray([quat], dtype=np.float64))
+            logger.info(f"自动抓取: 机器人复位到桌前 {pos}")
+        except Exception as e:
+            logger.warning(f"底盘复位失败(继续): {e!r}")
+        try:
+            self._motion = None
+            names = list(self.articulation.dof_names)
+            q = self._current_targets()
+            for s in ("left", "right"):
+                for n in [f"{s}_arm_{i}_joint" for i in range(1, 7)] + \
+                        [f"{s}_wrist_joint"]:
+                    if n in names:
+                        q[names.index(n)] = 0.0
+            self.articulation.set_joint_position_targets(
+                q.reshape(1, -1).astype(np.float32))
+        except Exception as e:
+            logger.warning(f"手臂回 home 失败(继续): {e!r}")
+
+    def _restore_body_home(self):
+        """把机身升降/俯仰恢复到 home 值（随机可达范围是按 home 位姿标定的）。"""
+        try:
+            jt = getattr(self._vr_teleop, "_jac_table", None) \
+                if self._vr_teleop is not None else None
+            hq = np.asarray(jt.get("home_q", []), float) if jt else None
+            names = list(self.articulation.dof_names)
+            vals, jnames = [], []
+            for n in ("lift_joint", "torso_pitch_joint"):
+                if n not in names:
+                    continue
+                jnames.append(n)
+                vals.append(float(hq[names.index(n)])
+                            if hq is not None and hq.size == len(names) else 0.0)
+            if jnames:
+                self.send_joint_command(vals, duration=1.5, joint_names=jnames)
+                logger.info(f"自动抓取: 机身复位 {dict(zip(jnames, vals))}")
+        except Exception as e:
+            logger.warning(f"机身复位失败: {e!r}")
+
+    def _grasp_object_by_name(self, name, max_dist=None):
+        """按名字取一个可抓物体（AABB 中心 + **真实**尺寸）。"""
+        import omni.usd
+        from pxr import Usd, UsdGeom
+
+        st = omni.usd.get_context().get_stage()
+        p = st.GetPrimAtPath(f"/World/{name}")
+        if not p.IsValid():
+            return None
+        bb = UsdGeom.BBoxCache(Usd.TimeCode.Default(), [UsdGeom.Tokens.default_])
+        r = bb.ComputeWorldBound(p).ComputeAlignedRange()
+        if r.IsEmpty():
+            return None
+        lo, hi = np.array(r.GetMin()), np.array(r.GetMax())
+        size = self._object_true_size(p)
+        if size is None:
+            size = hi - lo
+        return {"name": name, "center": 0.5 * (lo + hi), "size": size,
+                "dist": 0.0}
+
+    def _grasp_random_place(self, side, obj_name=None, margin=0.05,
+                            forward=(0.44, 0.58), lateral=(0.20, 0.38)):
+        """随机挑一个可抓物体，随机放到**手臂前方桌面上**，返回落点。
+
+        可达范围从**手臂基座**推：实测好抓点 ≈ 基座 + (0.54, 0.00)，
+        所以取 前方 0.42~0.62m、左右 ±0.13m 的矩形，再夹到桌面 AABB 内。
+        物体落点 z = 桌面高 + 半个物体高（贴桌面）。
+        """
+        import omni.usd
+        from pxr import Usd, UsdGeom
+        from isaacsim.core.prims import RigidPrim
+
+        st = omni.usd.get_context().get_stage()
+        bb = UsdGeom.BBoxCache(Usd.TimeCode.Default(), [UsdGeom.Tokens.default_])
+
+        # 候选物体（优先方块）
+        cands = []
+        root = st.GetPrimAtPath("/World")
+        for p in root.GetChildren():
+            if p.GetName().startswith(self._GRASP_OBJ_PREFIXES):
+                # 尺寸必须用**真实**尺寸: 物体被夹住倾斜时 AABB 会胀到
+                # 84mm(60mm 的方块转 45°), 用 AABB 筛会把在场的物体全过滤掉
+                # → 报"场景里没有可抓物体"。
+                size = self._object_true_size(p)
+                if size is None:
+                    r = bb.ComputeWorldBound(p).ComputeAlignedRange()
+                    if r.IsEmpty():
+                        continue
+                    size = np.array(r.GetMax()) - np.array(r.GetMin())
+                if 0.005 <= float(min(size[0], size[1])) <= 0.075:
+                    cands.append(p.GetName())
+        if not cands:
+            raise RuntimeError("场景里没有可抓物体")
+        default = self._GRASP_DEFAULT_OBJECT
+        if obj_name and obj_name in cands:
+            name = obj_name
+        elif default and default in cands:
+            name = default
+        else:                       # 兜底：第一个方块
+            cubes = [c for c in cands if c.startswith("cube")]
+            name = (cubes or cands)[0]
+
+        # 桌面范围（放物体用）
+        tp = st.GetPrimAtPath("/World/vla_table")
+        tr = bb.ComputeWorldBound(tp).ComputeAlignedRange()
+        tlo, thi = np.array(tr.GetMin()), np.array(tr.GetMax())
+        top_z = float(thi[2])
+
+        # 可达范围用**机器人底座**系来定（不是手臂基座：后者随机身升降/俯仰
+        # 整体漂移，实测同样 z 下 x 能从 −0.04 变到 +0.19，按它算会把物体放到
+        # 够不着的地方）。底座系里实测好抓点 ≈ (0.50, 0.18)，取矩形
+        # 前 0.44~0.58、侧 0.05~0.31（左臂在 +y 一侧）。
+        Tb = self._grasp_link_T("base_link")
+        # 其它物体的当前位置（**不动它们**，只用来避开：落点别贴着它们）
+        others_xy = []
+        for on in cands:
+            if on == name:
+                continue
+            r2 = bb.ComputeWorldBound(
+                st.GetPrimAtPath(f"/World/{on}")).ComputeAlignedRange()
+            if not r2.IsEmpty():
+                c2 = 0.5 * (np.array(r2.GetMin()) + np.array(r2.GetMax()))
+                others_xy.append(c2[:2])
+        # 侧向偏**左手边**(+y): 左臂在 +y 一侧, 放这边姿态更松、更好够
+        x = y = None
+        for _ in range(12):
+            fwd = np.random.uniform(*forward)
+            lat = np.random.uniform(*lateral)
+            pw = Tb[:3, :3] @ np.array([fwd, lat, 0.0]) + Tb[:3, 3]
+            cx = float(np.clip(pw[0], tlo[0] + margin, thi[0] - margin))
+            cy = float(np.clip(pw[1], tlo[1] + margin, thi[1] - margin))
+            if all(np.linalg.norm(np.array([cx, cy]) - o) > 0.18
+                   for o in others_xy):
+                x, y = cx, cy
+                break
+        if x is None:               # 实在抽不到就退而求其次
+            x, y = cx, cy
+        bx, by = float(Tb[0, 3]), float(Tb[1, 3])
+
+        # 物体自身**真实**尺寸 → 贴桌面 + 后面算夹持宽度
+        op = st.GetPrimAtPath(f"/World/{name}")
+        size = self._object_true_size(op)
+        if size is None:
+            orr = bb.ComputeWorldBound(op).ComputeAlignedRange()
+            size = np.array(orr.GetMax()) - np.array(orr.GetMin())
+        z = top_z + float(size[2]) * 0.5 + 0.002
+        # 随机朝向: 更像真随机摆放。抓取时虎口会对准这个 yaw 的面
+        yaw = float(np.random.uniform(-np.pi / 2, np.pi / 2))
+        q = np.array([np.cos(yaw / 2), 0.0, 0.0, np.sin(yaw / 2)])
+
+        rp = RigidPrim(f"/World/{name}")
+        rp.initialize()
+        rp.set_world_poses(positions=np.asarray([[x, y, z]], dtype=np.float64),
+                           orientations=np.asarray([q], dtype=np.float64))
+        rp.set_linear_velocities(np.zeros((1, 3)))
+        rp.set_angular_velocities(np.zeros((1, 3)))
+        return {"name": name, "pos": np.array([x, y, z]), "yaw": yaw,
+                "size": size, "table_top": top_z,
+                "base": np.array([bx, by, float(Tb[2, 3])])}
+
+    def auto_pick(self, side: str = "left", object_name: str = None,
+                  approach: float = 0.12, lift: float = 0.20,
+                  squeeze: float = 0.5, max_dist: float = 0.45,
+                  randomize: bool = True, reset_robot: bool = True):
+        """启动**自动抓取**（非阻塞）。由 step() 逐帧推进。
+
+        流程：**随机放物体** → 张开 → 取物体中心 → 合到目标开口量出闭合态
+        TCP → 规划三段轨迹(含机身高度搜索) → 升降机身 → 预备 → 直线下压 →
+        闭合 → 直线上抬。
+
+        :param randomize: True=每次先随机挑一个方块放到手臂前方可达处再抓
+            （菜单键默认）；False=抓夹爪附近最近的物体。
+
+        必须非阻塞：从 HTTP 协程里同步跑会等主线程的 step()，而死锁。
+        """
+        self._require_robot()
+        if self._auto_pick is not None:
+            return {"status": "busy", "phase": self._auto_pick["phase"]}
+        self._auto_pick = {
+            "side": side, "phase": "reset",
+            "object_name": object_name, "randomize": bool(randomize),
+            "approach": approach, "lift": lift, "squeeze": squeeze,
+            "max_dist": max_dist, "t": time.time(), "note": "", "error": None,
+            "object": None, "qs": None, "arm_names": None, "sent": False,
+            "spawn": None, "reset_robot": bool(reset_robot),
+        }
+        self._set_vr_suspended(True)
+        logger.info(f"自动抓取启动 (side={side}, randomize={randomize})")
+        return {"status": "started", "side": side, "randomize": bool(randomize)}
+
+    def auto_pick_status(self):
+        ap = self._auto_pick
+        if ap is None:
+            return {"running": False, "last": self._last_auto_pick}
+        return {"running": True, "phase": ap["phase"],
+                "object": (ap["object"] or {}).get("name"),
+                "error": ap.get("error"), "note": ap.get("note"),
+                "obj_w_mm": ap.get("obj_w_mm"),
+                "target_sep_mm": ap.get("sep_mm"),
+                "close_sep_mm": ap.get("close_sep_mm"),
+                "close_leader": ap.get("close_leader")}
+
+    def abort_auto_pick(self):
+        if self._auto_pick is None:
+            return {"status": "idle"}
+        self._auto_pick_finish("用户中止")
+        return {"status": "aborted"}
+
+    def _auto_pick_finish(self, note: str = ""):
+        ap = self._auto_pick
+        self._auto_pick = None
+        self._set_vr_suspended(False)
+        logger.info(f"自动抓取结束: {note or '完成'}")
+        if ap is not None:
+            self._last_auto_pick = {
+                "note": note, "error": ap.get("error"),
+                "object": (ap.get("object") or {}).get("name"),
+                "obj_w_mm": ap.get("obj_w_mm"),
+                "target_sep_mm": ap.get("sep_mm"),
+                "close_sep_mm": ap.get("close_sep_mm")}
+
+    def _set_vr_suspended(self, flag: bool):
+        """自动抓取期间挂起 VR 手臂/夹爪写入，避免两边抢控制权。"""
+        if self._vr_teleop is not None:
+            try:
+                self._vr_teleop.set_suspended(flag)
+            except Exception:
+                pass
+
+    def _auto_pick_check_lifted(self, ap):
+        """抬完后物体是否真的跟着起来了。None = 无法判定(没记起始高度)。"""
+        obj = ap.get("object") or {}
+        z0 = ap.get("obj_z0")
+        if z0 is None:
+            return None
+        try:
+            o2 = self._grasp_object_by_name(obj.get("name"))
+            if o2 is None:
+                return None
+            return bool(float(o2["center"][2]) - z0 > 0.05)
+        except Exception:
+            return None
+
+    def _auto_pick_step(self):
+        ap = self._auto_pick
+        if ap is None:
+            return
+        try:
+            self._auto_pick_advance(ap)
+        except Exception as e:
+            import traceback
+            logger.warning(f"自动抓取异常: {traceback.format_exc()[-400:]}")
+            ap["error"] = repr(e)
+            self._auto_pick_finish(f"异常: {e!r}")
+
+    def _auto_pick_advance(self, ap):
+        """状态机：每个 phase 里等够时间/等运动走完再进下一相。"""
+        ph = ap["phase"]
+        el = time.time() - ap["t"]
+        side = ap["side"]
+
+        def nxt(nphase):
+            ap["phase"] = nphase
+            ap["t"] = time.time()
+            ap["sent"] = False
+
+        # "发过了没有"必须用显式标志: 用 `el < 0.05` 判断时, 一帧卡顿
+        # (渲染/资产加载)就会让 el 直接跳过窗口 → 指令永远发不出去。
+        if not ap.get("sent") and ph in ("open", "measure", "reopen",
+                                         "pre", "grasp", "close", "lift"):
+            if ph == "open":
+                self.set_gripper_position(side=side, position=1000)
+            elif ph in ("measure", "close"):
+                self.set_gripper_position(side=side, fraction=ap["frac"])
+            elif ph == "reopen":
+                self.set_gripper_position(side=side, position=1000)
+            else:
+                self.send_joint_command(ap["qs"][ph], duration=1.8,
+                                        joint_names=ap["arm_names"])
+            ap["sent"] = True
+
+        if ph == "reset":
+            # 先把机器人送回桌面正前方标准位 + 手臂回 home。
+            # 用 VR 把机器人开走之后，随机摆放的可达范围就对不上了。
+            if not ap.get("reset_robot", True):
+                nxt("spawn")
+            elif not ap.get("sent"):
+                self._reset_robot_to_table()
+                ap["sent"] = True
+            elif el > 3.5:
+                nxt("spawn")
+
+        elif ph == "spawn":
+            # 随机挑一个方块放到手臂前方可达处，再走正常抓取流程。
+            # **必须先恢复机身高度**：可达范围是按 home 位姿标定的，机身还停在
+            # 上一轮降下来的位置时 arm_base 会整体前移 0.2m+，物体就被放到够不着
+            # 的地方（实测落到 x=0.667）。
+            step = ap.get("spawn_step", 0)
+            if step == 0:
+                if not ap.get("sent"):
+                    self._restore_body_home()
+                    ap["sent"] = True
+                elif el > 2.5:
+                    ap["spawn_step"] = 1
+                    ap["sent"] = False
+                    ap["t"] = time.time()
+            else:
+                if not ap.get("sent"):
+                    try:
+                        info = self._grasp_random_place(
+                        side, ap.get("object_name"),
+                        forward=ap.get("forward", (0.44, 0.58)))
+                        ap["spawn"] = info
+                        logger.info(
+                            f"自动抓取: 随机放置 {info['name']} → "
+                            f"{np.round(info['pos'], 3)} (yaw "
+                            f"{np.degrees(info['yaw']):.0f}°)")
+                    except Exception as e:
+                        ap["error"] = f"随机放置失败: {e!r}"
+                        self._auto_pick_finish(ap["error"])
+                        return
+                    ap["sent"] = True
+                elif el > 1.5:
+                    nxt("open")
+
+        elif ph == "open":
+            if el > 1.2:
+                probe = self._grasp_probe(side)
+                tcp = 0.5 * (probe["pad_r"] + probe["pad_l"])
+                # 随机摆放的物体按名字取(它可能离夹爪很远, 用距离筛会漏)
+                obj = (self._grasp_object_by_name(ap["spawn"]["name"])
+                       if ap.get("spawn") else
+                       self._grasp_find_object(tcp, ap["max_dist"]))
+                if obj is None:
+                    ap["error"] = "夹爪附近没有可抓物体"
+                    self._auto_pick_finish("没找到物体")
+                    return
+                ap["object"] = obj
+                ap["obj_z0"] = float(obj["center"][2])
+                w = float(min(obj["size"][0], obj["size"][1])) * 1000.0
+                ap["obj_w_mm"] = w
+                ap["sep_mm"] = w + gripper_model.PAD_THICKNESS_MM - ap["squeeze"]
+                ap["frac"] = gripper_model.fraction_for_sep_mm(ap["sep_mm"])
+                logger.info(f"自动抓取目标 {obj['name']} 宽 {w:.1f}mm "
+                            f"距离 {obj['dist']:.3f}m")
+                nxt("measure")
+
+        elif ph == "measure":
+            # 合到**目标闭合角**量出闭合态 TCP（指垫中点随开口漂移 ~11mm）
+            if el > 1.8:
+                nxt("plan")
+
+        elif ph == "plan":
+            probe = self._grasp_probe(side)
+            T_ee = probe["T_ee"]
+            pad_mid = 0.5 * (probe["pad_r"] + probe["pad_l"])
+            tcp_local = T_ee[:3, :3].T @ (pad_mid - T_ee[:3, 3])
+            sepv = probe["pad_r"] - probe["pad_l"]
+            jaw_local = T_ee[:3, :3].T @ (sepv / (np.linalg.norm(sepv) + 1e-9))
+            chain = grasp_planner.load_chain(
+                arm_kin.URDF, f"{side}_arm_base_link",
+                f"{side}_gripper_base_link")
+            limits = np.asarray(probe["arm_limits"], float)
+            q0 = np.clip(np.asarray(probe["arm_q"], float),
+                         limits[:, 0] + 1e-4, limits[:, 1] - 1e-4)
+            # 把 home 位形也当 IK 起点: 手臂若停在很偏的位形(实测 arm_2 贴下限),
+            # 多起点会全部收敛到"贴着限位、姿态解不开"的局部解。
+            seeds = []
+            try:
+                jt = getattr(self._vr_teleop, "_jac_table", None) \
+                    if self._vr_teleop is not None else None
+                hq = np.asarray(jt.get("home_q", []), float) if jt else None
+                names_all = list(self.articulation.dof_names)
+                if hq is not None and hq.size == len(names_all):
+                    seeds.append(hq[[names_all.index(n)
+                                     for n in probe["arm_names"]]])
+            except Exception:
+                pass
+            # 物体带随机 yaw → 虎口对准它的面（法向 + 切向 共 4 个候选方向）
+            jaw_axes = None
+            _yaw = float((ap.get("spawn") or {}).get("yaw", 0.0))
+            if abs(_yaw) > 1e-3:
+                ca, sa = float(np.cos(_yaw)), float(np.sin(_yaw))
+                jaw_axes = [np.array([ca, sa, 0.0]), np.array([-ca, -sa, 0.0]),
+                            np.array([-sa, ca, 0.0]), np.array([sa, -ca, 0.0])]
+            # **每帧只跑一档机身高度**（生成器）：一次完整规划要跑上百次
+            # least_squares，同步跑完会把画面冻住十几秒（用户实测"卡顿很久"）。
+            ap["plan_gen"] = grasp_planner.plan_grasp_steps(
+                chain, q0, limits, probe["T_ab"], tcp_local, jaw_local,
+                np.asarray(ap["object"]["center"], float),
+                approach=ap["approach"], lift=ap["lift"], seeds=seeds,
+                jaw_axes=jaw_axes)
+            ap["plan_best"] = None
+            ap["plan_names"] = probe["arm_names"]
+            nxt("plan_tick")
+            return
+
+        elif ph == "plan_tick":
+            gen = ap.get("plan_gen")
+            if gen is None:
+                self._auto_pick_finish("规划状态丢失")
+                return
+            try:
+                score, qs, info, dz = next(gen)
+                if ap["plan_best"] is None or score < ap["plan_best"][0]:
+                    ap["plan_best"] = (score, qs, info, dz)
+                ap["note"] = f"规划中… 已试机身 {dz:+.2f}m (得分 {score:.0f})"
+                return
+            except StopIteration:
+                pass
+            except Exception as e:
+                ap["error"] = f"规划异常: {e!r}"
+                self._auto_pick_finish(ap["error"])
+                return
+            ap["plan_gen"] = None
+            best = ap["plan_best"]
+            if best is None:
+                qs, info = None, {}
+            else:
+                _, qs, info, dz = best
+            if qs is None:
+                # 可达范围是估的，够不着就把物体往机器人方向挪一点重放
+                if ap.get("retry", 0) < 3:
+                    ap["retry"] = ap.get("retry", 0) + 1
+                    f0, f1 = ap.get("forward", (0.44, 0.58))
+                    ap["forward"] = (f0 - 0.06, f1 - 0.06)
+                    logger.info(f"自动抓取: 规划失败, 物体挪近重试 "
+                                f"(第 {ap['retry']} 次, forward="
+                                f"{ap['forward']})")
+                    ap["spawn_step"] = 1
+                    ap["sent"] = False
+                    nxt("spawn")
+                    return
+                ap["error"] = info.get("error")
+                self._auto_pick_finish(f"规划失败: {ap['error']}")
+                return
+            # descent/ascent 是"数组的列表"(笛卡尔路点), 不是数组
+            ap["qs"] = {
+                k: (v.tolist() if hasattr(v, "tolist")
+                    else [np.asarray(x).tolist() for x in v])
+                for k, v in qs.items()}
+            ap["arm_names"] = ap.get("plan_names")
+            ap["body_dz"] = float(info.get("body_dz", 0.0))
+            ap["note"] = ("IK 位置误差 " + "/".join(
+                f"{info['infos'][t]['pos_err_mm']:.1f}" for t in
+                ("pre", "grasp", "lift")) + "mm, 机身 "
+                + f"{ap['body_dz']:+.2f}m")
+            nxt("body")
+
+        elif ph == "body":
+            # 机身升降(lift_joint 棱柱): 规划选了哪个高度就先移过去。
+            # 臂够不到桌面时降机身比硬掰手臂好(用户 2026-10-09 指出)。
+            if abs(ap.get("body_dz", 0.0)) < 1e-3:
+                nxt("reopen")
+            elif not ap.get("sent"):
+                names = list(self.articulation.dof_names)
+                if "lift_joint" in names:
+                    cur = float(self._current_targets()[names.index("lift_joint")])
+                    self.send_joint_command([cur + ap["body_dz"]],
+                                            duration=1.5,
+                                            joint_names=["lift_joint"])
+                ap["sent"] = True
+            elif self._motion is None and el > 0.3:
+                nxt("reopen")
+
+        elif ph == "reopen":
+            if el > 1.2:
+                nxt("pre")
+
+        elif ph == "pre":
+            # 一步到物体上方悬停位(关节空间插值, 2s)。用户 2026-10-09 明确要
+            # 回到这个版本 —— 加笛卡尔接近路径反而变成"先往上、再从上面接近"。
+            if el > 0.3 and self._motion is None:
+                ap["wp"] = 0
+                nxt("descent")
+
+        elif ph in ("descent", "ascent"):
+            # 笛卡尔直线路点: 关节空间插值会让 TCP 走曲线、斜着蹭到物体
+            wps = ap["qs"][ph]
+            k = ap.get("wp", 0)
+            if not ap.get("sent"):
+                self.send_joint_command(wps[k], duration=0.25,
+                                        joint_names=ap["arm_names"])
+                ap["sent"] = True
+            elif el > 0.28 and self._motion is None:
+                k += 1
+                if k >= len(wps):
+                    nxt("close" if ph == "descent" else "settle")
+                else:
+                    ap["wp"] = k
+                    ap["sent"] = False
+                    ap["t"] = time.time()
+
+        elif ph == "close":
+            if el > 2.2:
+                try:
+                    gp = self.get_gripper_position(side)
+                    pr = self._grasp_link_T(f"{side}_gripper_right_pad_link")[:3, 3]
+                    pl = self._grasp_link_T(f"{side}_gripper_left_pad_link")[:3, 3]
+                    ap["close_leader"] = gp["angle_rad"]
+                    ap["close_sep_mm"] = round(
+                        float(np.linalg.norm(pr - pl) * 1000), 2)
+                    logger.info(
+                        f"自动抓取闭合: 主动关节 {gp['angle_rad']:.4f} "
+                        f"指垫中心距 {ap['close_sep_mm']:.2f}mm "
+                        f"(目标 {ap['sep_mm']:.2f}mm)")
+                except Exception:
+                    pass
+                # 闭合自检：驱动有稳态误差（力矩上限/刚度），实测指垫会停在
+                # 离目标 0.5~1.4mm 处 → 没真正接触 → 一抬就掉。量出来差多少
+                # 就往紧里再补多少，最多补 3 次。
+                # 只在"差一点点"时补：差太多说明不是驱动稳态误差，而是机构已经
+                # 卡住了——再加压只会让指垫反而张开（实测一路压到 51.6mm 时指垫
+                # 张开到 64mm）。累计补夹量也设上限。
+                short = ap.get("close_sep_mm", 0.0) - ap.get("sep_mm", 0.0)
+                added = ap.get("grip_added", 0.0)
+                if short > 0.5 and ap.get("grip_retry", 0) < 3 \
+                        and added < 3.0:
+                    ap["grip_retry"] = ap.get("grip_retry", 0) + 1
+                    step = min(short + 0.4, 3.0 - added)
+                    ap["grip_added"] = added + step
+                    ap["sep_mm"] = ap["sep_mm"] - step
+                    ap["frac"] = gripper_model.fraction_for_sep_mm(ap["sep_mm"])
+                    logger.info(
+                        f"自动抓取: 指垫差 {short:.2f}mm → 补夹 {step:.2f}mm 到中心距 "
+                        f"{ap['sep_mm']:.2f}mm (第 {ap['grip_retry']} 次)")
+                    ap["sent"] = False
+                    ap["t"] = time.time()
+                    return
+                ap["wp"] = 0
+                nxt("ascent")
+
+        elif ph == "settle":
+            if el > 1.2:
+                # 任务级自检: 抬完看物体有没有真的跟着起来。单次抓取的物理
+                # 成功率只有 ~50-70%(指垫差最后零点几毫米没接触), 但"重放重抓"
+                # 两三次就能把整体成功率拉上去。
+                ok = self._auto_pick_check_lifted(ap)
+                if ok is None:
+                    self._auto_pick_finish("完成")
+                elif ok:
+                    ap["lifted_ok"] = True
+                    self._auto_pick_finish("完成")
+                elif ap.get("task_retry", 0) < 2:
+                    ap["task_retry"] = ap.get("task_retry", 0) + 1
+                    logger.info(f"自动抓取: 没夹住 → 重放重抓 "
+                                f"(第 {ap['task_retry']} 次)")
+                    for k in ("spawn", "qs", "plan_gen", "plan_best",
+                              "grip_retry", "grip_added", "close_sep_mm",
+                              "close_leader", "body_dz"):
+                        ap.pop(k, None)
+                    ap["object"] = None
+                    ap["spawn_step"] = 1
+                    ap["sent"] = False
+                    nxt("spawn")
+                else:
+                    ap["error"] = "重试 2 次仍未夹住"
+                    self._auto_pick_finish("没夹住")
+        else:
+            self._auto_pick_finish(f"未知状态 {ph}")
 
     # ==================== USD 机器人资产 ====================
 
@@ -360,6 +1471,56 @@ class RobotManager:
         raise ValueError(
             f"预设 '{name}' 缺少 usd_path/urdf_path，请检查 config.json")
 
+    def _bake_joint_gains(self, usd_path: str, gains_path: str):
+        """把 <stem>.gains.json 的按关节增益烘进转换产物 USD（值=USD 级）。
+
+        键 = URDF 关节名，值 = {"stiffness": k, "damping": d, "friction": f?}。
+        注意折算：物理表现 damping ≈ USD 值 × 57.3（bake_damping 实测），生成
+        gains.json 时须把物理期望值 /57.3。只写已有 drive 属性的关节；无驱动
+        的 mimic 跟随关节跳过，由 _fix_gripper_joint_gains 补 friction。
+        """
+        import json as _json
+        from pxr import Usd
+
+        try:
+            with open(gains_path) as f:
+                gains = _json.load(f)
+        except Exception as e:
+            logger.warning(f"gains.json 读取失败，跳过增益烘焙: {e}")
+            return
+        stage = Usd.Stage.Open(usd_path)
+        if stage is None:
+            logger.warning(f"无法打开转换产物，跳过增益烘焙: {usd_path}")
+            return
+        fixed = skipped = 0
+        for prim in stage.Traverse():
+            tname = prim.GetTypeName()
+            if tname not in ("PhysicsRevoluteJoint", "PhysicsPrismaticJoint"):
+                continue
+            g = gains.get(prim.GetName())
+            if not g:
+                continue
+            axis = "angular" if tname == "PhysicsRevoluteJoint" else "linear"
+            ok = True
+            for key in ("stiffness", "damping"):
+                if key not in g:
+                    continue
+                attr = prim.GetAttribute(f"drive:{axis}:physics:{key}")
+                if not attr:
+                    ok = False
+                    break
+                attr.Set(float(g[key]))
+            if ok:
+                if "friction" in g:
+                    fa = prim.GetAttribute("physics:jointFriction")
+                    if fa:
+                        fa.Set(float(g["friction"]))
+                fixed += 1
+            else:
+                skipped += 1
+        stage.GetRootLayer().Save()
+        logger.info(f"增益已烘焙: {fixed} 关节（无 drive 跳过 {skipped}）<- {os.path.basename(gains_path)}")
+
     def _load_robot_usd(self, usd_path: str, prim_path: str):
         """USD 资产挂载 + Articulation 注册（load_robot 的实现体）。"""
         from isaacsim.core.prims import Articulation
@@ -394,6 +1555,8 @@ class RobotManager:
         self._ensure_default_environment()
         self._build_mimic_map()
         self._apply_home_pose()
+        self._register_static_cameras()
+        self._apply_static_camera_offsets()
         self._motion = None
 
         joint_names = list(self.articulation.dof_names)
@@ -526,11 +1689,14 @@ class RobotManager:
         if self._vr_teleop is None:
             from isaac_teleop import VRTeleopManager
             self._vr_teleop = VRTeleopManager(self)
-        defaults = dict(self._config.get("teleop", {}))
-        defaults.pop("_comment", None)
-        defaults.pop("arm_joints", None)     # 由 isaac_teleop 内部读取
-        defaults.pop("gripper_leader", None)
+        allowed = {"rate_hz", "workspace_scale", "max_step", "deadzone",
+                   "grip_open"}
+        defaults = {
+            key: value for key, value in self._config.get("teleop", {}).items()
+            if key in allowed
+        }
         defaults.update(kwargs)
+        self._vr_grip_open = float(defaults.get("grip_open", 0.7))
         return self._vr_teleop.start(**defaults)
 
     def stop_vr_teleop(self):
@@ -542,6 +1708,30 @@ class RobotManager:
         if self._vr_teleop is None:
             return {"running": False}
         return self._vr_teleop.status()
+
+    def vr_axis_calib(self, state: str = "start"):
+        """手柄→世界旋转的推杆实测标定: start → 双手柄水平前推30cm → done。
+
+        零假设直接测量(不依赖头显偏航/客户端坐标系约定), 每侧独立解 phi;
+        state="clear" 回到头显推算。结果在返回体与 vr_teleop_status.axis_calib。
+        """
+        if self._vr_teleop is None:
+            return {"status": "not_running"}
+        return self._vr_teleop.axis_calib(state)
+
+    def vr_push_calib(self, state: str = "start", side: str = "left"):
+        """**三推杆标定**: 解出跟踪系→机器人世界系的完整旋转矩阵。
+
+        比 vr_axis_calib 强的地方: 后者只解偏航(且假设客户端是标准 OpenXR
+        轴序 —— 实测该假设不成立, "前推"在客户端系里走 +x), 本标定用三次
+        已知方向的推杆解出完整 3×3 旋转, 对轴序零假设。
+
+        用法: start → 同一只手依次"前推、左推、上抬"各 ~30cm(每次推完停
+        1 秒再收回) → done。结果在返回体与 vr_teleop_status.push_calib。
+        """
+        if self._vr_teleop is None:
+            return {"status": "not_running"}
+        return self._vr_teleop.vr_push_calib(state, side)
 
     # ==================== 相机 ====================
 
@@ -767,14 +1957,36 @@ class RobotManager:
             "publish_rate": publish_rate,
         }
 
-    def send_joint_command(self, positions: list, duration: float = 0.0):
+    def send_joint_command(self, positions: list, duration: float = 0.0,
+                           joint_names: list = None):
         """
         下发关节目标到仿真（非阻塞）。positions 顺序与 setup_ros2_bridge
         的 joint_names 一致。
 
         duration>0 时按 smoothstep 平滑插值，主循环逐帧推进；
         duration=0 立即施加。外部 ROS2 节点则通过 command_topic 下发指令。
+
+        :param joint_names: 只下发这些关节（positions 与之一一对应），其余
+            关节沿用**当前指令目标**。控制单条臂/夹爪时必须用它：否则调用方
+            往往拿 `/joint_states` 反馈当输入，等于把"当前(下垂)姿态"重新
+            写成目标，全身会被重力一点点压塌(2026-10-08 实测)。
         """
+        self._require_robot()
+        if joint_names is not None:
+            names = list(self.articulation.dof_names)
+            vals = list(positions)
+            if len(vals) != len(joint_names):
+                raise ValueError(
+                    f"positions 长度 {len(vals)} 与 joint_names "
+                    f"长度 {len(joint_names)} 不一致")
+            full = self._current_targets()
+            missing = [n for n in joint_names if n not in names]
+            if missing:
+                raise ValueError(f"未知关节: {missing[:4]}")
+            for n, v in zip(joint_names, vals):
+                full[names.index(n)] = float(v)
+            positions = full.tolist()
+
         if self._ros_controller is None:
             # 无 ROS2 桥的回退：positions 顺序 = articulation dof_names，
             # 直接施加（HTTP/relay 控制路径）
@@ -929,6 +2141,23 @@ class RobotManager:
         return [float(v) for v in
                 np.asarray(self.articulation.get_joint_positions()).reshape(-1)]
 
+    def _current_targets(self):
+        """当前 50 维**指令目标**（读不到时退化为实测位置）。
+
+        与 `_joint_positions_flat()` 的区别：那个是物理读数，这个是驱动器收到
+        的指令，用于"只改我关心的几个关节，别人保持不动"的部分下发。
+        """
+        names = list(self.articulation.dof_names)
+        try:
+            t = np.asarray(
+                self.articulation._physics_view
+                .get_dof_position_targets()).reshape(-1).astype(float)
+            if t.size == len(names) and np.isfinite(t).all():
+                return t
+        except Exception:
+            pass
+        return np.asarray(self._joint_positions_flat(), dtype=float)
+
     def _apply_joint_positions(self, positions):
         """把与 dof_names 对齐的位置向量施加到 articulation。
 
@@ -952,6 +2181,7 @@ class RobotManager:
             # 5.x view API 要求 (M, K)，单机器人 M=1
             self.articulation.set_joint_position_targets(
                 vals[keep].reshape(1, -1), joint_indices=indices)
+            self._apply_software_mimic(vals)
         except Exception as e:
             logger.error(f"应用关节指令失败: {e}")
 
@@ -978,7 +2208,8 @@ class RobotManager:
         interp = [lerp(a, b, s) for a, b in zip(m["start"], m["target"])]
         if self.articulation is not None and self.world.is_playing():
             self._apply_joint_positions(interp)
-        self._ros_controller.record_command(interp)
+        if self._ros_controller is not None:
+            self._ros_controller.record_command(interp)
         if t >= 1.0:
             self._motion = None
             logger.info("平滑插值完成")

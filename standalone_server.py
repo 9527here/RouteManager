@@ -86,19 +86,37 @@ class StateManager:
         self.error_msg = ""
         self.result_data = None
         self.lock = threading.Lock()
+        self.task_seq = 0       # 任务自增 id
+        self.cur_id = None      # 当前槽位里的任务 id(取结果时校验归属)
+        self.done_at = 0.0      # 进入 SUCCESS/FAILED 的时刻(回收无人认领结果用)
 
     def submit_task(self, task_name, **kwargs):
         with self.lock:
-            if self.state in (TaskState.PENDING, TaskState.RUNNING):
-                logger.warning(f"系统正忙，当前任务: {self.task_name}，拒绝新任务: {task_name}")
-                return False, f"系统正忙，正在处理任务: {self.task_name}"
+            # 只在 IDLE 收新任务: SUCCESS/FAILED 但结果尚未被等待中的 HTTP
+            # 协程取走时也不能覆盖——否则高频轮询(ROS relay)会把完成态偷走,
+            # handler 永远等不到自己的任务完成, /execute 全部挂死(2026-09-28 实测)。
+            if self.state != TaskState.IDLE:
+                # SUCCESS/FAILED 停留 >3s = 等待的 HTTP 协程已消失(客户端超时/
+                # 断开), 结果无人认领 → 回收, 否则单槽永久锁死(2026-09-28 实测)。
+                if self.state in (TaskState.SUCCESS, TaskState.FAILED) \
+                        and time.time() - self.done_at > 3.0:
+                    logger.warning(f"回收无人认领的 {self.state.value} 结果"
+                                   f"(任务 {self.task_name}#{self.cur_id})")
+                    self.state = TaskState.IDLE
+                    self.result_data = None
+                else:
+                    logger.warning(f"系统正忙，当前任务: {self.task_name}"
+                                   f"({self.state.value})，拒绝新任务: {task_name}")
+                    return False, f"系统正忙，正在处理任务: {self.task_name}"
+            self.task_seq += 1
+            self.cur_id = self.task_seq
             self.task_name = task_name
             self.task_kwargs = kwargs
             self.error_msg = ""
             self.result_data = None
             self.state = TaskState.PENDING
-            logger.info(f"任务已提交: {task_name}，参数: {kwargs}")
-            return True, "任务提交成功"
+            logger.info(f"任务已提交: {task_name}#{self.cur_id}，参数: {kwargs}")
+            return True, self.cur_id
 
     def get_status(self):
         with self.lock:
@@ -111,11 +129,13 @@ class StateManager:
     def set_success(self):
         with self.lock:
             self.state = TaskState.SUCCESS
+            self.done_at = time.time()
 
     def set_failed(self, error: str):
         with self.lock:
             self.state = TaskState.FAILED
             self.error_msg = error
+            self.done_at = time.time()
 
 
 # ============================================================
@@ -217,33 +237,50 @@ def build_app(task_timeout=7200.0):
     """构造 FastAPI 应用并注册路由。"""
     app = FastAPI(title="Isaac Sim Task Server")
 
-    async def wait_for_task_completion():
-        """HTTP 线程挂起等待仿真主线程执行任务，并返回结果。"""
-        start_time = time.time()
-        while time.time() - start_time < task_timeout:
-            state, error_msg = _state_mgr.get_status()
+    async def wait_for_task_completion(task_id=None):
+        """HTTP 线程挂起等待仿真主线程执行任务，并返回结果。
 
-            if state == TaskState.SUCCESS:
+        task_id: 只认领**自己提交**的那个任务的完成态。不带 id 时任何客户端
+        都能吃掉槽位里的 SUCCESS(高频轮询下互相偷结果 → 全体挂死)。
+        """
+        start_time = time.time()
+        try:
+            while time.time() - start_time < task_timeout:
+                outcome = None      # ("ok", data) / ("err", msg)
                 with _state_mgr.lock:
-                    result_data = _state_mgr.result_data
+                    if task_id is None or _state_mgr.cur_id == task_id:
+                        if _state_mgr.state == TaskState.SUCCESS:
+                            outcome = ("ok", _state_mgr.result_data)
+                            _state_mgr.result_data = None
+                            _state_mgr.state = TaskState.IDLE
+                        elif _state_mgr.state == TaskState.FAILED:
+                            outcome = ("err", _state_mgr.error_msg)
+                            _state_mgr.state = TaskState.IDLE
+                if outcome is not None:
+                    if outcome[0] == "ok":
+                        resp = {"status": "success", "message": "任务执行成功"}
+                        if outcome[1] is not None:
+                            resp["data"] = outcome[1]
+                        return resp
+                    logger.error(f"任务执行失败: {outcome[1]}")
+                    raise HTTPException(status_code=500,
+                                        detail=f"任务执行失败: {outcome[1]}")
+
+                import asyncio
+                await asyncio.sleep(0.05)
+        finally:
+            # 客户端断开/取消时协程被杀, 自己任务的完成态若还在槽里必须清掉,
+            # 否则单槽锁死(与 submit_task 的 3s 回收互为双保险)。
+            with _state_mgr.lock:
+                if (task_id is None or _state_mgr.cur_id == task_id) and \
+                        _state_mgr.state in (TaskState.SUCCESS,
+                                             TaskState.FAILED):
                     _state_mgr.result_data = None
                     _state_mgr.state = TaskState.IDLE
-                resp = {"status": "success", "message": "任务执行成功"}
-                if result_data is not None:
-                    resp["data"] = result_data
-                return resp
-
-            elif state == TaskState.FAILED:
-                with _state_mgr.lock:
-                    _state_mgr.state = TaskState.IDLE
-                logger.error(f"任务执行失败: {error_msg}")
-                raise HTTPException(status_code=500, detail=f"任务执行失败: {error_msg}")
-
-            import asyncio
-            await asyncio.sleep(0.1)
 
         with _state_mgr.lock:
-            _state_mgr.state = TaskState.IDLE
+            if task_id is None or _state_mgr.cur_id == task_id:
+                _state_mgr.state = TaskState.IDLE
         logger.warning("任务等待超时")
         raise HTTPException(status_code=408, detail="任务执行超时")
 
@@ -259,10 +296,10 @@ def build_app(task_timeout=7200.0):
     async def execute_python(req: PythonRequest):
         """在仿真主线程中执行任意 Python 代码（调试/在线修复用）。"""
         logger.info(f"收到 Python 执行请求: {req.code[:80]}...")
-        success, msg = _state_mgr.submit_task("exec_code", code=req.code)
+        success, info = _state_mgr.submit_task("exec_code", code=req.code)
         if not success:
-            raise HTTPException(status_code=409, detail=msg)
-        return await wait_for_task_completion()
+            raise HTTPException(status_code=409, detail=info)
+        return await wait_for_task_completion(info)
 
     @app.post("/execute")
     async def execute_action(req: ActionRequest):
@@ -270,10 +307,10 @@ def build_app(task_timeout=7200.0):
         final_params = _merge_default_params(req.action, req.parameters)
         logger.info(f"收到执行请求: action={req.action}, 合并后参数: {final_params}")
 
-        success, msg = _state_mgr.submit_task(req.action, **final_params)
+        success, info = _state_mgr.submit_task(req.action, **final_params)
         if not success:
-            raise HTTPException(status_code=409, detail=msg)
-        return await wait_for_task_completion()
+            raise HTTPException(status_code=409, detail=info)
+        return await wait_for_task_completion(info)
 
     return app
 

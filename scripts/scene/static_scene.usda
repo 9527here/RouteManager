@@ -1,0 +1,177 @@
+#usda 1.0
+(
+    defaultPrim = "World"
+    metersPerUnit = 1
+    upAxis = "Z"
+)
+
+def Xform "World"
+{
+    def Xform "cams"
+    {
+        def Camera "head_zed_x"
+        {
+            double3 xformOp:translate = (-0.115241, -0.008908, 1.791439)
+            quatd xformOp:orient = (0.533169, 0.564997, -0.459474, -0.430573)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
+            float focalLength = 12.486560821533203
+            float horizontalAperture = 20.954999923706055
+            float verticalAperture = 13.096875190734863
+            float2 clippingRange = (0.10000000149011612, 8.0)
+        }
+        def Camera "head_surround_left"
+        {
+            double3 xformOp:translate = (-0.170901, 0.009597, 1.784845)
+            quatd xformOp:orient = (0.445097, 0.445364, 0.549228, 0.549444)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
+            float focalLength = 7.336432933807373
+            float horizontalAperture = 20.954999923706055
+            float verticalAperture = 13.096875190734863
+            float2 clippingRange = (0.30000001192092896, 15.0)
+        }
+        def Camera "head_surround_right"
+        {
+            double3 xformOp:translate = (-0.15668, -0.047981, 1.785169)
+            quatd xformOp:orient = (0.549228, 0.549444, -0.445097, -0.445364)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
+            float focalLength = 7.336432933807373
+            float horizontalAperture = 20.954999923706055
+            float verticalAperture = 13.096875190734863
+            float2 clippingRange = (0.30000001192092896, 15.0)
+        }
+        def Camera "head_surround_rear"
+        {
+            double3 xformOp:translate = (-0.186385, -0.023977, 1.783602)
+            quatd xformOp:orient = (-0.073606, -0.073621, 0.703264, 0.703265)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
+            float focalLength = 7.336432933807373
+            float horizontalAperture = 20.954999923706055
+            float verticalAperture = 13.096875190734863
+            float2 clippingRange = (0.30000001192092896, 15.0)
+        }
+        def Camera "chest_gemini_335lg"
+        {
+            double3 xformOp:translate = (-0.021097, 0.00093, 1.513346)
+            quatd xformOp:orient = (0.629551, 0.455199, -0.36868, -0.510427)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
+            float focalLength = 10.477499961853027
+            float horizontalAperture = 20.954999923706055
+            float verticalAperture = 13.096875190734863
+            float2 clippingRange = (0.15000000596046448, 10.0)
+        }
+        def Camera "left_wrist_gemini_335lg"
+        {
+            double3 xformOp:translate = (0.391436, 0.932958, 1.24214)
+            quatd xformOp:orient = (0.70275, 0.628382, 0.324247, 0.078377)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
+            float focalLength = 10.477499961853027
+            float horizontalAperture = 20.954999923706055
+            float verticalAperture = 13.096875190734863
+            float2 clippingRange = (0.15000000596046448, 10.0)
+        }
+        def Camera "right_wrist_gemini_335lg"
+        {
+            double3 xformOp:translate = (0.705313, -0.7418, 1.208465)
+            quatd xformOp:orient = (0.665755, 0.705733, 0.044061, -0.238266)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
+            float focalLength = 10.477499961853027
+            float horizontalAperture = 20.954999923706055
+            float verticalAperture = 13.096875190734863
+            float2 clippingRange = (0.15000000596046448, 10.0)
+        }
+        def Camera "tv_cam"
+        {
+            double3 xformOp:translate = (-0.550397, 0.589219, 1.639209)
+            quatd xformOp:orient = (-0.608351, -0.343767, 0.351919, 0.622806)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
+            float focalLength = 10.47700023651123
+            float horizontalAperture = 20.954999923706055
+            float verticalAperture = 13.096875190734863
+            float2 clippingRange = (0.05000000074505806, 100.0)
+        }
+    }
+    # ---- 高摩擦材质：场景原本**完全没有材质绑定**，PhysX 用默认值，实测
+    # 桌面摩擦系数 ≈0.05（几乎无摩擦）→ 夹爪压住物体也夹不住，一抬就滑脱。
+    def Material "friction_mat" (
+        apiSchemas = ["PhysicsMaterialAPI"]
+    )
+    {
+        float physics:staticFriction = 1.0
+        float physics:dynamicFriction = 1.0
+        float physics:restitution = 0.0
+    }
+
+    def Xform "vla_table" (
+        prepend references = @/home/jy/VLA/Collected_piper_table_clean_v2/piper_table_clean_v2.usd@</World/table>
+    )
+    {
+        rel material:binding = </World/friction_mat>
+        double3 xformOp:translate = (1.0, 0.0, 0.0)
+        quatd xformOp:orient = (0.7071067811865476, 0.0, 0.0, 0.7071067811865475)
+        uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
+    }
+    def Cube "cube_a" (
+        apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsCollisionAPI", "PhysicsMassAPI"]
+    )
+    {
+        rel material:binding = </World/friction_mat>
+        double size = 1
+        double3 xformOp:translate = (1.4500, -0.3500, 0.7716)
+        float3 xformOp:scale = (0.07, 0.07, 0.07)
+        uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+        color3f[] primvars:displayColor = [(0.9, 0.35, 0.15)]
+        float physics:mass = 0.05
+    }
+    def Cylinder "cyl_b" (
+        apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsCollisionAPI", "PhysicsMassAPI"]
+    )
+    {
+        rel material:binding = </World/friction_mat>
+        double radius = 1
+        double height = 1
+        uniform token axis = "Z"
+        double3 xformOp:translate = (1.3500, 0.3800, 0.7966)
+        float3 xformOp:scale = (0.03, 0.03, 0.12)
+        uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+        color3f[] primvars:displayColor = [(0.2, 0.6, 0.9)]
+        float physics:mass = 0.05
+    }
+    def Cube "cube_c" (
+        apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsCollisionAPI", "PhysicsMassAPI"]
+    )
+    {
+        rel material:binding = </World/friction_mat>
+        double size = 1
+        double3 xformOp:translate = (1.2000, 0.2000, 0.7666)
+        float3 xformOp:scale = (0.06, 0.06, 0.06)
+        uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+        color3f[] primvars:displayColor = [(0.95, 0.8, 0.2)]
+        float physics:mass = 0.05
+    }
+    # ---- ENV LIGHT BEGIN (set_env_light.py) ----
+    def DomeLight "env_dome"
+    {
+        float inputs:intensity = 1000
+        token inputs:texture:format = "latlong"
+        asset inputs:texture:file = @/home/jy/RouteManager/scripts/scene/background_faces/env_equirect.png@
+        double3 xformOp:rotateXYZ = (0, 0, 0)
+        uniform token[] xformOpOrder = ["xformOp:rotateXYZ"]
+    }
+    def DistantLight "env_sun"
+    {
+        float inputs:intensity = 500
+        float inputs:angle = 0.53
+        double3 xformOp:rotateXYZ = (0, 0, 0)
+        uniform token[] xformOpOrder = ["xformOp:rotateXYZ"]
+    }
+    # ---- ENV LIGHT END ----
+    # ---- QZ3 SCENE BEGIN (add_qz3_scene.py) ----
+    def Xform "qz3_scene" (
+        prepend references = @/home/jy/datasets/vla_data/L2_仿真运行/场景/泉州3/lcc-usdz-result/model.usdz@</World>
+    )
+    {
+        double3 xformOp:translate = (1.05, -5.4, 0.058)
+        uniform token[] xformOpOrder = ["xformOp:translate"]
+    }
+    # ---- QZ3 SCENE END ----
+}
