@@ -279,7 +279,10 @@ def main():
         with open(os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                "scene", "jac_table.json")) as _f:
             _hq = np.asarray(json.load(_f).get("home_q", []), float)
-        _dn = (http("get_joint_names") or {}).get("dof_names") or []
+        # jac_table.json 的 home_q 是按**全量 DOF 顺序**存的（含夹爪跟随关节），
+        # 所以这里要用 dof_names_all 对齐，不能用默认（已过滤夹爪跟随关节）的列表
+        _dn = ((http("get_joint_names") or {}).get("dof_names_all")
+               or (http("get_joint_names") or {}).get("dof_names") or [])
         if _hq.size == len(_dn):
             _seeds.append(_hq[[_dn.index(n) for n in names]])
     except Exception as _e:

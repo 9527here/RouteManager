@@ -72,6 +72,10 @@ class RobotManager:
 
         self.simulation_app = simulation_app
         self.world = World(stage_units_in_meters=1.0)
+        # **必须在 reset 之前**：PhysX 建场景时就把 solver/稳定性参数读进去了，
+        # 运行时再改 USD 属性不生效。
+        self._config = self._load_config()
+        self._ensure_physics_scene()
         self.world.reset()
 
         self.articulation = None      # URDF 导入后的机器人
@@ -80,7 +84,6 @@ class RobotManager:
         self._attached_cameras = {}   # prim_path -> attach_to（按本地姿态移动）
         self._ros_controller = None
         self._vr_teleop = None
-        self._config = self._load_config()
         render_cfg = self._config.get("render") or {}
         raw_render_interval = os.environ.get(
             "ROUTE_MANAGER_RENDER_INTERVAL",
@@ -89,6 +92,12 @@ class RobotManager:
         self._render_interval = max(1, int(raw_render_interval))
         self._render_counter = 0
         self._mimic_map = None       # 软件 mimic 表 {leader_idx: [(follower_idx, gearing)]}
+        #: URDF 里的 <mimic> 原始表 {joint: (src_joint, multiplier)}，load_urdf 填。
+        #: 有了它 _build_mimic_map 就不依赖关节命名，任何夹爪资产都能直接用。
+        self._urdf_mimic = None
+        #: 夹爪跟随关节的 DOF 索引集合 —— 对外接口(get_joint_names/states)隐藏，
+        #: 使用者只需看到每只手 1 个主动关节（物理 DOF 不变）
+        self._gripper_followers = set()
         self._mimic_targets = None   # {leader_idx: 最近一次指令目标}
         # 夹爪全开时的主动关节角(rad)，与 URDF 主动关节上限 0.7 一致；
         # start_vr_teleop 会用 config.json teleop.grip_open 覆盖，保证
@@ -140,6 +149,9 @@ class RobotManager:
         # mimic 放在 VR 之后: 用**当帧**的主动关节指令算跟随关节, 零滞后。
         # (放在 VR 之前会晚一帧, 夹爪高速开合时能看到跟随指头慢半拍)
         self._apply_software_mimic()
+        # 腕部等挂载相机每帧跟随 link 运动(转腕时相机跟着转)；offsets 有缓存,
+        # 文件没变就是一次矩阵乘, 开销可忽略。
+        self._apply_static_camera_offsets()
         should_render = True if render is None else bool(render)
         if render is None and self._render_interval > 1:
             self._render_counter += 1
@@ -187,7 +199,11 @@ class RobotManager:
             logger.info(f"静态相机已注册: {registered}")
 
     def _apply_static_camera_offsets(self):
-        """按已标定偏移把静态相机放到对应机器人连杆上。"""
+        """按已标定偏移把静态相机放到对应机器人连杆上。
+
+        step() 每帧调用（相机跟着 link 动），offsets 按 mtime 缓存——文件没改
+        就不走磁盘，改动后下一帧自动生效。
+        """
         import json
         import omni.usd
         from pxr import Gf
@@ -199,8 +215,12 @@ class RobotManager:
         if not os.path.exists(offset_path) or self.articulation is None:
             return
         try:
-            with open(offset_path, encoding="utf-8") as file:
-                offsets = json.load(file)
+            mtime = os.stat(offset_path).st_mtime
+            if getattr(self, "_cam_offset_cache", None) is None \
+                    or self._cam_offset_cache[0] != mtime:
+                with open(offset_path, encoding="utf-8") as file:
+                    self._cam_offset_cache = (mtime, json.load(file))
+            offsets = self._cam_offset_cache[1]
             stage = omni.usd.get_context().get_stage()
             link_transforms = np.asarray(
                 self.articulation._physics_view.get_link_transforms()
@@ -402,19 +422,130 @@ class RobotManager:
         except Exception as e:
             logger.warning(f"摩擦材质创建失败: {e!r}")
 
+    # ==================== 外观材质 ====================
+
+    def _fix_visual_materials(self, prim_path: str):
+        """让 URDF 里的 `<material><color rgba=...>` 真正显色。
+
+        **问题**：Isaac 的 URDF 导入器其实把颜色读进去了 —— 每个 link 上挂了
+        `Looks/material_<颜色hex>`（如 `material_CAD1EE` = 0.792/0.820/0.933 淡蓝）。
+        但它同时给每个 mesh 塞了一个**更近**的 `Looks/DefaultMaterial` 绑定。
+        按 USD 的就近优先规则，mesh 级永远盖过 link 级 ⇒ URDF 颜色一次都没生效，
+        整机渲染成默认白灰（2026-10-12 实测）。
+
+        **修法**：mesh 藏在 `visuals`（instanceable）的原型里，而 **USD 禁止对
+        实例原型写入**（`authoring to an instancing prototype is not allowed`）。
+        所以先把 `visuals` 去实例化（在根层写 over，不改资产文件），再摘掉 mesh 级
+        那个 `DefaultMaterial` 绑定，link 级材质就露出来了。
+
+        只对**有 link 级材质**的 visual 组动手；`visuals` 里本来就没有材质绑定的
+        资产（如老的人形 USD）保持原样，行为不变。
+        """
+        from pxr import Usd, UsdShade
+        import omni.usd
+
+        stage = omni.usd.get_context().get_stage()
+        root = stage.GetPrimAtPath(prim_path)
+        if not root or not root.IsValid():
+            return
+
+        def _bound(prim):
+            rel = UsdShade.MaterialBindingAPI(prim).GetDirectBindingRel()
+            return [str(t) for t in rel.GetTargets()] if rel else []
+
+        deinstanced = unbound = 0
+        for prim in Usd.PrimRange(root):
+            if prim.GetName() != "visuals":
+                continue
+            # link 级材质：URDF 颜色绑在 visuals 下面第一层（以 mesh 文件命名的 Xform）。
+            # **必须从原型读**：实例开启时 GetAllChildren() 拿到的是实例代理，
+            # 代理上的关系读不出来（读到的永远是空），会误判成"没有材质"而跳过。
+            # 原型只读不写是允许的，写才报 "authoring to an instancing prototype"。
+            src = prim.GetPrototype() if prim.IsInstanceable() else prim
+            if not src or not src.IsValid():
+                continue
+            if not any(_bound(c) for c in src.GetAllChildren()):
+                continue
+            if prim.IsInstanceable():
+                prim.SetInstanceable(False)      # 原型不可写，先展开再改
+                deinstanced += 1
+            for child in prim.GetAllChildren():
+                for node in child.GetAllChildren():
+                    for mesh in node.GetAllChildren():
+                        if mesh.GetTypeName() != "Mesh":
+                            continue
+                        b = _bound(mesh)
+                        if b and b[0].split("/")[-1] == "DefaultMaterial":
+                            UsdShade.MaterialBindingAPI(mesh).GetDirectBindingRel() \
+                                .ClearTargets(True)
+                            unbound += 1
+        if deinstanced or unbound:
+            logger.info(f"外观材质已修正: 去实例化 {deinstanced} 个 visuals, "
+                        f"摘掉 {unbound} 个遮挡 URDF 颜色的 mesh 级 DefaultMaterial")
+
     # ==================== 软件 mimic ====================
 
     def _build_mimic_map(self):
         """构建软件 mimic 表：夹爪跟随关节 = gearing × 主动关节角度。
 
-        URDF mimic 链扁平化后的倍率规则（与 /humanoid 关节命名对应）：
+        倍率优先**从 URDF 的 `<mimic>` 标签读**（`load_urdf` 填 `_urdf_mimic`），
+        链式 mimic（如 CT 夹爪的 Left_in→L2→R2）自动展开成对根主动关节的倍率。
+        这样任何夹爪资产都不用改代码——单独加载官方 RM65+CT 时关节叫
+        `ctag_R2`/`ctag_Left_in`，硬编码人形命名就认不出来了。
+
+        没有 URDF 来源时（走 `load_robot` 加载已转换的 USD）退回人形命名规则：
           *left_main_joint / *left_3_joint → -1.0
           *_1_joint                        → -0.15
           其余                              → +1.0
-        PhysX 的 PhysxMimicJointAPI 在该资产上不生效（已从资产剥离），
-        由 step() 每帧软件强制执行，确定性有保障。
+
+        PhysX 的 PhysxMimicJointAPI 在该资产上不生效（导入时已用
+        `parse_mimic=False` 剥离），由 step() 每帧软件强制执行，确定性有保障。
         """
         names = list(self.articulation.dof_names)
+        mapping = self._mimic_map_from_urdf(names)
+        if mapping is None:
+            mapping = self._mimic_map_from_names(names)
+        self._mimic_map = mapping or None
+        self._mimic_targets = None
+        self._gripper_followers = {i for entries in mapping.values()
+                                   for i, _ in entries}
+        if self._mimic_map:
+            n_followers = sum(len(v) for v in mapping.values())
+            logger.info(f"软件 mimic 已启用: {len(mapping)} 个主动关节, "
+                f"{n_followers} 个跟随关节")
+            self._tune_gripper_drives()
+        # 底盘/颈部不依赖 mimic，但同样必须在**加载后**统一驱动参数
+        self._tune_wheel_drives()
+        self._tune_neck_drives()
+
+    def _mimic_map_from_urdf(self, names):
+        """按 URDF `<mimic>` 标签建表（链式展开到根主动关节）。无标签时返回 None。"""
+        spec = getattr(self, "_urdf_mimic", None)
+        if not spec:
+            return None
+
+        def root_of(j, seen=()):
+            """沿 mimic 链上溯到根，返回 (根关节名, 累计倍率)。"""
+            if j not in spec or j in seen:
+                return j, 1.0
+            src, mult = spec[j]
+            r, m = root_of(src, seen + (j,))
+            return r, mult * m
+
+        mapping = {}
+        for n in names:
+            if n not in spec:
+                continue
+            leader, mult = root_of(n)
+            if leader == n or leader not in names:
+                continue          # 自环/根关节不在本机器人里 → 跳过
+            mapping.setdefault(names.index(leader), []).append(
+                (names.index(n), mult))
+        return mapping or None
+
+    @staticmethod
+    def _mimic_map_from_names(names):
+        """按人形关节命名规则建表（无 URDF 来源时的兜底，见 _build_mimic_map）。"""
         mapping = {}
         for side in ("left", "right"):
             leader = f"{side}_gripper_right_2_joint"
@@ -432,13 +563,34 @@ class RobotManager:
                     g = 1.0
                 entries.append((names.index(n), g))
             mapping[names.index(leader)] = entries
-        self._mimic_map = mapping or None
-        self._mimic_targets = None
-        if self._mimic_map:
-            n_followers = sum(len(v) for v in mapping.values())
-            logger.info(f"软件 mimic 已启用: {len(mapping)} 个主动关节, "
-                f"{n_followers} 个跟随关节")
-            self._tune_gripper_drives()
+        return mapping or None
+
+    @staticmethod
+    def _parse_urdf_mimic(urdf_path):
+        """读 URDF 的 `<mimic joint= multiplier=>`，返回 {关节名: (源关节名, 倍率)}。
+
+        纯 XML 解析，不依赖 Isaac，可在导入前后任意时刻调用。
+        """
+        import xml.etree.ElementTree as ET
+
+        try:
+            root = ET.parse(urdf_path).getroot()
+        except Exception as e:
+            logger.warning(f"URDF mimic 解析失败(退回命名规则): {e!r}")
+            return None
+        spec = {}
+        for j in root.findall("joint"):
+            m = j.find("mimic")
+            if m is None or not j.get("name") or not m.get("joint"):
+                continue
+            try:
+                mult = float(m.get("multiplier", 1.0))
+            except ValueError:
+                mult = 1.0
+            spec[j.get("name")] = (m.get("joint"), mult)
+        if spec:
+            logger.info(f"URDF mimic 表: {len(spec)} 个跟随关节 <- {os.path.basename(urdf_path)}")
+        return spec or None
 
     #: 夹爪关节驱动上限力矩(N·m)。资产里**主动关节只有 20、跟随关节 30**，
     #: 主动关节反而更弱 → 被 12 个跟随关节按各自目标"反锁"，实测夹爪只能闭到
@@ -453,7 +605,9 @@ class RobotManager:
         """
         try:
             names = list(self.articulation.dof_names)
-            idx = [i for i, n in enumerate(names) if "gripper" in n]
+            # 人形用 `*_gripper_*`；单独加载官方 RM65+CT 时夹爪关节叫 `ctag_*`
+            idx = [i for i, n in enumerate(names)
+                   if "gripper" in n or n.startswith("ctag")]
             if not idx:
                 return
             view = self.articulation._physics_view
@@ -465,6 +619,140 @@ class RobotManager:
                         f"({len(idx)} 个关节; 之前 {before})")
         except Exception as e:
             logger.warning(f"夹爪驱动调参失败(夹爪可能闭不到底): {e!r}")
+
+    def _tune_wheel_drives(self):
+        """给底盘轮关节补上**位置驱动刚度**。
+
+        为什么必须补：`_update_base_velocity` 是把 (vx, wz) 折算成轮速、再逐帧
+        前移**位置目标**的虚拟速度模式。而人形资产烘出来的 `*.gains.json` 里
+        四个轮关节是 `stiffness: 0 / damping: 99.7` —— 纯阻尼驱动会忽略位置
+        目标，只按 targetVelocity(默认 0) 刹车。后果：`set_base_velocity`
+        一路返回成功、轮子却在原地抖，底盘 5 秒只挪 **1.1mm**（实测 2026-10-13）。
+        补上 stiffness 后同样指令 6 秒走 **963mm**（≈0.16 m/s）。
+
+        取值来自 `config.json` 的 `base_teleop.wheel_stiffness/wheel_damping`
+        （USD 级数值，写进物理视图要 ×57.29578，与 `_bake_joint_gains` 同口径）。
+        """
+        cfg = self._base_cfg or {}
+        ks = float(cfg.get("wheel_stiffness", 203.0))
+        kd = float(cfg.get("wheel_damping", 0.08))
+        try:
+            names = list(self.articulation.dof_names)
+            idx = [i for i, n in enumerate(names)
+                   if n in _BASE_WHEEL_JOINTS]
+            if not idx:
+                return
+            view = self.articulation._physics_view
+            k = np.asarray(view.get_dof_stiffnesses()).reshape(-1).copy()
+            d = np.asarray(view.get_dof_dampings()).reshape(-1).copy()
+            before = round(float(k[idx[0]]), 1)
+            if before > 0.0 and abs(before - ks * 57.29578) < 1.0:
+                return          # 已是目标值
+            k[idx] = ks * 57.29578
+            d[idx] = kd * 57.29578
+            view.set_dof_stiffnesses(k.reshape(1, -1), [0])
+            view.set_dof_dampings(d.reshape(1, -1), [0])
+            logger.info(f"底盘轮驱动刚度 {before} → {ks * 57.29578:.1f} "
+                        f"(USD {ks:.1f}/{kd:.2f}, {len(idx)} 个轮)")
+        except Exception as e:
+            logger.warning(f"底盘轮驱动调参失败(底盘可能推不动): {e!r}")
+
+    def _tune_neck_drives(self, zeta: float = 1.5):
+        """把颈部关节的阻尼补到 ζ≈`zeta`（默认 1.5，接近临界阻尼）。
+
+        为什么必须补：URDF 里 `head_{pitch,yaw}_joint` 写的是 `damping=0.5`，
+        但烘进 `*.gains.json` 时变成了 **0.0215 / 0.0435**（`_fix_gripper_joint_gains`
+        只修名字含 `gripper` 的关节，颈部被漏掉）。阻尼几乎为 0 的后果实测：
+
+          · 手臂一动手臂的反作用就让头**点头 3.5°**（抓取全程 head_pitch 极差
+            61.7 mrad），肉眼就是"机身轻微晃动"；底盘只动 0.56mm、躯干 0.1°，
+            静止整定后所有 link 摆幅 0.000mm —— 晃的只有头。
+          · 补到 ζ=1.5 后同样一段流程 head_pitch 极差降到 **17.6 mrad (1.0°)**。
+
+        驱动是 `acceleration` 型（`力矩 = 惯量 × k × 角差`），所以 ζ = d/(2√k)，
+        取 d = ζ·2·√k —— 不用手填绝对值，跟着各自刚度走。
+
+        顺带修腕部相机转台（`*_camera_rojoint`）：同一个烘焙出来的低阻尼，
+        实测抖动中位 1.2 mrad、峰值 13.8 mrad，是除头之外最大的。
+        """
+        try:
+            names = list(self.articulation.dof_names)
+            idx = [i for i, n in enumerate(names)
+                   if n in ("head_pitch_joint", "head_yaw_joint")
+                   or n.endswith("_camera_rojoint")]
+            if not idx:
+                return
+            view = self.articulation._physics_view
+            k = np.asarray(view.get_dof_stiffnesses()).reshape(-1).copy()
+            d = np.asarray(view.get_dof_dampings()).reshape(-1).copy()
+            before = {names[i]: round(float(d[i]), 3) for i in idx}
+            changed = 0
+            for i in idx:
+                want = zeta * 2.0 * float(np.sqrt(max(k[i], 0.0)))
+                if want > d[i]:
+                    d[i] = want
+                    changed += 1
+            if not changed:
+                return
+            view.set_dof_dampings(d.reshape(1, -1), [0])
+            logger.info(f"颈部/相机转台阻尼 → ζ={zeta} ({changed} 个关节; "
+                        f"之前 {before})")
+        except Exception as e:
+            logger.warning(f"颈部驱动调参失败(头会晃): {e!r}")
+
+    def _ensure_physics_scene(self):
+        """写物理场景级参数（必须在 PhysX 建场景**之前**，运行时改不生效）。
+
+        依据 PhysX 官方 *Articulation Stability Guide*：
+          · `enableStabilization` —— 官方 `World` 文档说默认开，但本机实测
+            `/physicsScene` 上是 **false**，得自己写。
+          · `solverPositionIterationCount` —— "Increasing the number of position
+            iterations with the TGS solver **reduces the effective simulation
+            timestep**"，是比降 `physics_dt` 便宜的稳定化手段（用户要求不降性能）。
+          · `solveArticulationContactLast` —— "gripping 场景下让 dynamic contact
+            在求解顺序里靠后…可以减少持续接触穿透"。官方原文给的就是这个属性名。
+
+        值放在 config.json 的 `physics` 段，可以单独关掉。
+        """
+        cfg = (self._config.get("physics") or {})
+        if not cfg.get("enabled", False):
+            logger.info("物理场景调参已关闭（config.json physics.enabled=false）")
+            return
+        it = int(cfg.get("solver_position_iterations", 32))
+        spec = {
+            "physxScene:enableStabilization":
+                bool(cfg.get("enable_stabilization", True)),
+            # **没有 `solverPositionIterationCount` 这个属性** —— PhysX 5 的
+            # TGS 用的是 min/max 区间（求解器自适应），两个都设成同一个值
+            # 就等价于固定迭代数。
+            "physxScene:minPositionIterationCount": it,
+            "physxScene:maxPositionIterationCount": it,
+            # 官方给的属性名（`scenePrim.CreateSolveArticulationContactLastAttr()`），
+            # PhysxSceneAPI 里没有现成 accessor，得自己建。
+            "physxScene:solveArticulationContactLast":
+                bool(cfg.get("solve_articulation_contact_last", True)),
+        }
+        try:
+            import omni.usd
+            stage = omni.usd.get_context().get_stage()
+            sc = stage.GetPrimAtPath("/physicsScene")
+            if not sc.IsValid():
+                logger.warning("找不到 /physicsScene，跳过物理场景调参")
+                return
+            from pxr import PhysxSchema, Sdf
+            PhysxSchema.PhysxSceneAPI.Apply(sc)
+            done = {}
+            for k, v in spec.items():
+                a = sc.GetAttribute(k)
+                if not a:
+                    a = sc.CreateAttribute(k, Sdf.ValueTypeNames.Bool
+                                           if isinstance(v, bool)
+                                           else Sdf.ValueTypeNames.Int)
+                a.Set(v)
+                done[k.split(":")[-1]] = v
+            logger.info(f"物理场景参数: {done}")
+        except Exception as e:
+            logger.warning(f"物理场景调参失败: {e!r}")
 
     def _apply_software_mimic(self, command_positions=None):
         """按主动关节的指令目标更新跟随关节目标。
@@ -568,6 +856,16 @@ class RobotManager:
         import_config.merge_fixed_joints = merge_fixed_joints
         import_config.self_collision = self_collision
         import_config.import_inertia_tensor = True
+        # **关掉 PhysX 原生 mimic**（导入器默认 True）。夹爪四连杆的跟随关节
+        # 在 URDF 里带 <mimic>，默认会给它们挂 PhysxMimicJointAPI —— 那种关节
+        # **没有 drive、没有 limit**，而我们的软件 mimic(_apply_software_mimic)
+        # 又每帧往它们写位置目标：写不进去 + PhysX 那套在本资产上不稳 ⇒
+        # 跟随关节自由乱飞、夹爪散架（2026-10-12 实测左手 left_2 跑到 1.62rad）。
+        # 关掉后跟随关节变回**普通驱动关节**，软件 mimic 才真正生效。
+        try:
+            import_config.parse_mimic = False
+        except Exception as e:
+            logger.warning(f"关闭 parse_mimic 失败(夹爪可能散架): {e!r}")
         # 位置驱动：可以直接 set_joint_positions 控制关节
         # (Isaac 5.1: 枚举 UrdfJointTargetType.JOINT_DRIVE_POSITION;
         #  旧版是 UrdfJointTarget.DRIVE_ANGLE)
@@ -607,6 +905,10 @@ class RobotManager:
         except Exception as e:
             logger.warning(f"切换 FK 链来源失败(保持原样): {e}")
 
+        # 记下 URDF 的 <mimic> 表：_build_mimic_map 靠它建软件 mimic，
+        # 不依赖关节命名（单独加载官方 RM65+CT 时关节叫 ctag_R2 / ctag_Left_in）
+        self._urdf_mimic = self._parse_urdf_mimic(urdf_path)
+
         # 转换后增益烘焙: URDF 无 stiffness 概念、官方臂无 dynamics, 直转产物
         # damping≈0 会纯弹簧振铃。URDF 同目录 <stem>.gains.json 存在时按关节名
         # 烘 stiffness/damping 进 USD (值=USD 级, 见 scene-friction/bake_damping
@@ -633,6 +935,9 @@ class RobotManager:
                     staged_path = cand
 
         self.robot_prim_path = staged_path
+        # 让 URDF 里的 <material> 真正显色（必须在建 Articulation 之前做，
+        # 因为去实例化会动 stage；之后再动会把物理视图搞失效）
+        self._fix_visual_materials(staged_path)
 
         # 物理必须先运行: 干净场景直接 load_urdf 时, tensor 后端未启动会让
         # Articulation 构造里的 _physics_view 断言炸 backend=None
@@ -660,13 +965,28 @@ class RobotManager:
         logger.info(f"机器人已加载: {staged_path}，关节数: {len(joint_names)}")
         return {"usd_path": dest_path, "prim_path": staged_path, "joint_names": joint_names}
 
-    def get_joint_names(self):
-        """列出当前机器人的关节名与 DOF 索引。"""
+    def get_joint_names(self, full: bool = False):
+        """列出关节名。
+
+        **默认隐藏夹爪的跟随关节**：一只 ctag2f120 夹爪物理上有 12 个可动件
+        （四连杆机构），但对外只需要 1 个主动关节——其余由 `_apply_software_mimic`
+        每帧按倍率补齐。所以列表里每只手只留 `*_gripper_right_2_joint`。
+
+        **物理 DOF 一个没少**（`num_dofs_total` 是真实值），只是不对外列；
+        要看全量传 `full=true`。RViz 那种"一个滑块控制整只夹爪"就是这个口径。
+        """
         self._require_robot()
+        all_names = list(self.articulation.dof_names)
+        hide = self._gripper_followers
+        names = (all_names if full
+                 else [n for i, n in enumerate(all_names) if i not in hide])
         return {
             "prim_path": self.robot_prim_path,
-            "dof_names": list(self.articulation.dof_names),
-            "num_dofs": int(self.articulation.num_dof),
+            "dof_names": names,
+            "num_dofs": len(names),
+            "dof_names_all": all_names,
+            "num_dofs_total": int(self.articulation.num_dof),
+            "hidden": len(all_names) - len(names),
         }
 
     def set_joint_positions(self, positions: list, joint_names: list = None):
@@ -718,8 +1038,8 @@ class RobotManager:
         sides = ("left", "right") if side == "both" else (side,)
         done = {}
         for s in sides:
-            leader = self._GRIPPER_LEADER.get(s)
-            if not leader or leader not in names:
+            leader = self._gripper_leader_for(s, names)
+            if not leader:
                 continue
             self.articulation.set_joint_position_targets(
                 np.asarray([[target]], dtype=np.float32),
@@ -731,13 +1051,36 @@ class RobotManager:
         return {"status": "ok", "side": side, "fraction": round(frac, 4),
                 "position": int(round(1 + frac * 999)), "leader_target": done}
 
+    def _gripper_leader_for(self, side, names):
+        """找该侧夹爪的主动关节名。
+
+        人形：`_GRIPPER_LEADER` 里写死的 `{side}_gripper_right_2_joint`。
+        单臂（官方 RM65+CT 单独加载）：关节叫 `ctag_R2` 之类，命名对不上，
+        此时 `_mimic_map` 里**只有一个主动关节**，直接用它（side 参数忽略）。
+        """
+        leader = self._GRIPPER_LEADER.get(side)
+        if leader and leader in names:
+            return leader
+        if self._mimic_map and len(self._mimic_map) == 1:
+            idx = next(iter(self._mimic_map))
+            return names[idx]
+        return None
+
     def get_gripper_position(self, side: str = "right"):
-        """回读夹爪开口：主动关节角 → rm 单位(1~1000) 与比例。"""
+        """回读夹爪开口：主动关节角 → rm 单位(1~1000) 与比例。
+
+        side="both" 时返回 {"left": {...}, "right": {...}}（与 set_gripper_position
+        的 both 语义对齐，此前会直接报错）。
+        """
+        if side == "both":
+            return {"left": self.get_gripper_position("left"),
+                    "right": self.get_gripper_position("right")}
         self._require_robot()
         names = list(self.articulation.dof_names)
-        leader = self._GRIPPER_LEADER.get(side)
-        if not leader or leader not in names:
-            raise ValueError(f"未找到夹爪主动关节: {leader}")
+        leader = self._gripper_leader_for(side, names)
+        if not leader:
+            raise ValueError(
+                f"未找到夹爪主动关节(side={side})；已知关节: {names}")
         pos = self._joint_positions_flat()
         ang = float(pos[names.index(leader)])
         frac = gripper_model.fraction_for_leader(ang)
@@ -874,11 +1217,13 @@ class RobotManager:
             self._motion = None
             names = list(self.articulation.dof_names)
             q = self._current_targets()
+            # 回 **home_pose** 而不是硬编码 0：0 位是双臂水平前伸，很难看。
+            home = self._home_pose_values()
             for s in ("left", "right"):
                 for n in [f"{s}_arm_{i}_joint" for i in range(1, 7)] + \
                         [f"{s}_wrist_joint"]:
                     if n in names:
-                        q[names.index(n)] = 0.0
+                        q[names.index(n)] = float(home.get(n, 0.0))
             self.articulation.set_joint_position_targets(
                 q.reshape(1, -1).astype(np.float32))
         except Exception as e:
@@ -1025,17 +1370,21 @@ class RobotManager:
                 "base": np.array([bx, by, float(Tb[2, 3])])}
 
     def auto_pick(self, side: str = "left", object_name: str = None,
-                  approach: float = 0.12, lift: float = 0.20,
+                  approach: float = 0.25, lift: float = 0.20,
                   squeeze: float = 0.5, max_dist: float = 0.45,
-                  randomize: bool = True, reset_robot: bool = True):
+                  randomize: bool = True, reset_robot: bool = True,
+                  place_at: list = None, forward: list = None):
         """启动**自动抓取**（非阻塞）。由 step() 逐帧推进。
 
         流程：**随机放物体** → 张开 → 取物体中心 → 合到目标开口量出闭合态
         TCP → 规划三段轨迹(含机身高度搜索) → 升降机身 → 预备 → 直线下压 →
-        闭合 → 直线上抬。
+        闭合 → 直线上抬 →（给了 `place_at` 就继续）→ 规划到放置点 → 下压 →
+        张开 → 上抬。
 
         :param randomize: True=每次先随机挑一个方块放到手臂前方可达处再抓
             （菜单键默认）；False=抓夹爪附近最近的物体。
+        :param place_at: [x, y] 世界坐标（桌面上的落点）。给了就抓完**放下**再
+            结束；不给就停在"抬起来"的状态。z 由桌面高度 + 物体半高自动算。
 
         必须非阻塞：从 HTTP 协程里同步跑会等主线程的 step()，而死锁。
         """
@@ -1049,9 +1398,16 @@ class RobotManager:
             "max_dist": max_dist, "t": time.time(), "note": "", "error": None,
             "object": None, "qs": None, "arm_names": None, "sent": False,
             "spawn": None, "reset_robot": bool(reset_robot),
+            "place_at": (list(place_at) if place_at else None),
+            # 随机落点的"前方"区间(米, 相对机器人底座)。调大 = 故意放远，
+            # 用来验证"远物降机身去抓"这条路径。
+            "forward": (tuple(float(v) for v in forward)
+                        if forward else (0.44, 0.58)),
+            "place_mode": False,
         }
         self._set_vr_suspended(True)
-        logger.info(f"自动抓取启动 (side={side}, randomize={randomize})")
+        logger.info(f"自动抓取启动 (side={side}, randomize={randomize}, "
+                    f"place_at={place_at})")
         return {"status": "started", "side": side, "randomize": bool(randomize)}
 
     def auto_pick_status(self):
@@ -1093,6 +1449,78 @@ class RobotManager:
             except Exception:
                 pass
 
+    @staticmethod
+    def _traj_sample(wps, u):
+        """在路点序列上按参数 u∈[0,1] 做 Catmull-Rom 插值。
+
+        比"每段线性插值"好在 **C1 连续**：速度在路点处不跳变，所以可以
+        整段连续流送，不需要在路点上停下来。
+        """
+        P = np.asarray(wps, dtype=float)
+        n = P.shape[0]
+        if n == 1:
+            return P[0]
+        x = float(np.clip(u, 0.0, 1.0)) * (n - 1)
+        i = min(int(np.floor(x)), n - 2)
+        f = x - i
+        p0 = P[max(i - 1, 0)]
+        p1 = P[i]
+        p2 = P[i + 1]
+        p3 = P[min(i + 2, n - 1)]
+        return 0.5 * ((2.0 * p1) + (-p0 + p2) * f
+                      + (2.0 * p0 - 5.0 * p1 + 4.0 * p2 - p3) * f * f
+                      + (-p0 + 3.0 * p1 - 3.0 * p2 + p3) * f * f * f)
+
+    def _arm_err(self, ap, q_target, ):
+        """实测手臂关节角与目标的最大偏差(rad)。inf = 读不到。"""
+        try:
+            names = list(self.articulation.dof_names)
+            q = np.asarray(self.articulation.get_joint_positions()).reshape(-1)
+            return max(abs(float(q[names.index(n)]) - float(t))
+                       for n, t in zip(ap["arm_names"], q_target))
+        except Exception:
+            return float("inf")
+
+    def _arm_at_rest(self, ap, tol: float = 0.05):
+        """手臂关节**实测**速度是否都接近 0 (rad/s)。
+
+        `self._motion is None` 只说明**指令**插值发完了, 不代表驱动把手臂带到了
+        位——下降最后一步尤其明显。用实测速度判断才靠谱。
+        """
+        try:
+            names = list(self.articulation.dof_names)
+            v = np.asarray(self.articulation.get_joint_velocities()).reshape(-1)
+            return all(abs(float(v[names.index(n)])) < tol
+                       for n in ap["arm_names"])
+        except Exception:
+            return True
+
+    def _place_target(self, ap):
+        """放置点的 TCP 目标 = [x, y, 桌面高 + 半个物体高 + 2mm]。
+
+        z 不给调用方算：物体底面要落在桌面上，得知道桌面高度和物体真实高度。
+        """
+        try:
+            import omni.usd
+            from pxr import UsdGeom
+
+            x, y = float(ap["place_at"][0]), float(ap["place_at"][1])
+            size = np.asarray(ap["object"]["size"], float)
+            top = (ap.get("spawn") or {}).get("table_top")
+            if top is None:
+                st = omni.usd.get_context().get_stage()
+                bb = UsdGeom.BBoxCache(Usd.TimeCode.Default(),
+                                       [UsdGeom.Tokens.default_])
+                r = bb.ComputeWorldBound(
+                    st.GetPrimAtPath("/World/vla_table")).ComputeAlignedRange()
+                if r.IsEmpty():
+                    return None
+                top = float(np.array(r.GetMax())[2])
+            return [x, y, float(top) + float(size[2]) * 0.5 + 0.002]
+        except Exception as e:
+            logger.warning(f"放置点计算失败: {e!r}")
+            return None
+
     def _auto_pick_check_lifted(self, ap):
         """抬完后物体是否真的跟着起来了。None = 无法判定(没记起始高度)。"""
         obj = ap.get("object") or {}
@@ -1133,13 +1561,16 @@ class RobotManager:
         # "发过了没有"必须用显式标志: 用 `el < 0.05` 判断时, 一帧卡顿
         # (渲染/资产加载)就会让 el 直接跳过窗口 → 指令永远发不出去。
         if not ap.get("sent") and ph in ("open", "measure", "reopen",
-                                         "pre", "grasp", "close", "lift"):
-            if ph == "open":
+                                         "pre", "grasp", "close", "lift",
+                                         "release"):
+            if ph in ("open", "reopen", "release"):
+                # release: 放置时张开手指，把物体留在桌面上
                 self.set_gripper_position(side=side, position=1000)
             elif ph in ("measure", "close"):
-                self.set_gripper_position(side=side, fraction=ap["frac"])
-            elif ph == "reopen":
-                self.set_gripper_position(side=side, position=1000)
+                # close 不在这里一次性写目标 —— 由 close 相位**逐帧渐变**下发
+                # (见 close 分支)，否则指垫是一步撞上去的。
+                if ph == "measure":
+                    self.set_gripper_position(side=side, fraction=ap["frac"])
             else:
                 self.send_joint_command(ap["qs"][ph], duration=1.8,
                                         joint_names=ap["arm_names"])
@@ -1253,9 +1684,27 @@ class RobotManager:
             # least_squares，同步跑完会把画面冻住十几秒（用户实测"卡顿很久"）。
             ap["plan_gen"] = grasp_planner.plan_grasp_steps(
                 chain, q0, limits, probe["T_ab"], tcp_local, jaw_local,
-                np.asarray(ap["object"]["center"], float),
+                np.asarray(ap.get("plan_target")
+                           or ap["object"]["center"], float),
                 approach=ap["approach"], lift=ap["lift"], seeds=seeds,
-                jaw_axes=jaw_axes)
+                jaw_axes=jaw_axes,
+                # 路点打密: 默认 6 步时最后一步(落爪)是前几步的 2.5 倍关节运动,
+                # 驱动追不上 → 合爪时手还在横移, 把方块扫出虎口(2026-10-13 实测)。
+                descent_steps=12, lift_steps=8,
+                # **方块离得远时降机身去够**（用户 2026-10-14 指出）。
+                # 不降机身硬掰手臂的话，腕部被手臂限位卡住、接近轴只能斜着
+                # ——实测"方块稍微远一些就不能垂直抓下去，会有一个角度"。
+                # 降机身让肘部有余量，接近轴才拉得回铅垂。
+                #
+                # 2026-10-13 曾经把这里关成 (0.0,) 是因为**降机身不生效**：
+                # `body` 相位只等 `_motion is None`(插值发完)就往下走，而
+                # lift 驱动当时还没把机身带到位 → 规划按降了 dz 算、实际没降，
+                # TCP 整体高 dz、抓空。现在 body 相位改成等**实测到位**了，
+                # 可以重新打开。
+                body_offsets=(0.0, -0.06, -0.12, -0.18),
+                # 早点收：45 分意味着"位置 0mm + 朝下偏 5.6°"也直接接受，
+                # 那就不会再去试更低的机身。压到 20 逼它把朝下误差换小。
+                accept_score=20.0)
             ap["plan_best"] = None
             ap["plan_names"] = probe["arm_names"]
             nxt("plan_tick")
@@ -1306,7 +1755,20 @@ class RobotManager:
                     else [np.asarray(x).tolist() for x in v])
                 for k, v in qs.items()}
             ap["arm_names"] = ap.get("plan_names")
-            ap["body_dz"] = float(info.get("body_dz", 0.0))
+            # 每段轨迹的时长：按笛卡尔行程 / 参考线速度定，夹在 [1.0, 4.0]s。
+            # 太短 → 伺服追不上、末端甩；太长 → 慢得让人等。
+            ap["traj_T"] = {
+                "descent": float(np.clip(ap["approach"] / 0.12, 1.0, 4.0)),
+                "ascent": float(np.clip(ap["lift"] / 0.12, 1.0, 4.0)),
+            }
+            # **机身升降量在生成器的第 4 个返回值里，不在 info 里**：
+            # `plan_grasp_steps` yield 的是 (score, qs, info, dz)，而
+            # `info` 只由 `_plan_grasp_at` 填了 `infos`（`plan_grasp` 那个
+            # 非生成器版本才往 info 里补 `body_dz`）。以前这里读
+            # `info.get("body_dz", 0.0)` 永远拿到 0 —— 规划按"机身降了 dz"
+            # 解的 IK、实际机身没降，TCP 整体高 dz 抓空。所以当时把
+            # body_offsets 关成了 (0.0,)。现在直接取 yield 出来的 dz。
+            ap["body_dz"] = float(dz)
             ap["note"] = ("IK 位置误差 " + "/".join(
                 f"{info['infos'][t]['pos_err_mm']:.1f}" for t in
                 ("pre", "grasp", "lift")) + "mm, 机身 "
@@ -1322,12 +1784,27 @@ class RobotManager:
                 names = list(self.articulation.dof_names)
                 if "lift_joint" in names:
                     cur = float(self._current_targets()[names.index("lift_joint")])
-                    self.send_joint_command([cur + ap["body_dz"]],
-                                            duration=1.5,
+                    ap["body_tgt"] = cur + float(ap["body_dz"])
+                    self.send_joint_command([ap["body_tgt"]], duration=1.5,
                                             joint_names=["lift_joint"])
                 ap["sent"] = True
             elif self._motion is None and el > 0.3:
-                nxt("reopen")
+                # **必须等机身"真的"到位**，不能只看 `_motion is None`（那只说明
+                # 插值发完了）。2026-10-13 就是因为这里没等，降机身的指令跟不上、
+                # 规划按"降了 dz"算而实际没降 → TCP 整体高 dz、抓空，于是把
+                # body_offsets 关成了 (0.0,)。现在判据换成**实测 lift_joint 位置**，
+                # 降机身才能重新启用（用户 2026-10-14 要求远物降机身去抓）。
+                arrived = True
+                try:
+                    names = list(self.articulation.dof_names)
+                    q = np.asarray(
+                        self.articulation.get_joint_positions()).reshape(-1)
+                    arrived = abs(float(q[names.index("lift_joint")])
+                                  - float(ap["body_tgt"])) < 0.005
+                except Exception:
+                    pass
+                if arrived or el > 4.0:
+                    nxt("reopen")
 
         elif ph == "reopen":
             if el > 1.2:
@@ -1336,29 +1813,91 @@ class RobotManager:
         elif ph == "pre":
             # 一步到物体上方悬停位(关节空间插值, 2s)。用户 2026-10-09 明确要
             # 回到这个版本 —— 加笛卡尔接近路径反而变成"先往上、再从上面接近"。
+            #
+            # **必须等手臂"真的"到位，不能只看 `_motion is None`**：那只是说
+            # 插值发完了，伺服还在追。实测 `pre` 插值刚结束那一帧，实测关节角
+            # 与目标最多差 **0.277 rad (16°)**；此时就开下降，等于让手臂在竖直
+            # 下降的同时横向甩过去 —— 指垫扫到方块把它推走(实测 TCP 横向摆
+            # 85mm，方块被推 160mm)，最后在离方块 10cm 的空气里合爪。
+            # 用实测关节角判到位(与 `preclose` 同一套判据)，超时 3.5s 兜底。
             if el > 0.3 and self._motion is None:
-                ap["wp"] = 0
-                nxt("descent")
+                if el > 3.5 or self._arm_err(
+                        ap, np.asarray(ap["qs"]["pre"], float)) < 0.02:
+                    ap["wp"] = 0
+                    nxt("descent")
 
         elif ph in ("descent", "ascent"):
-            # 笛卡尔直线路点: 关节空间插值会让 TCP 走曲线、斜着蹭到物体
+            # **整段连续流送**，不再"发一个路点 → 等它停稳 → 再发下一个"。
+            #
+            # 旧做法为什么抖：`send_joint_command(duration=0.25)` 走的是
+            # `_advance_motion` 的 **smoothstep 插值**，而 smoothstep 在两端
+            # 速度都是 0 —— 每个路点都是一次"加速→减速→停死"。实测下降段
+            # TCP 速度在 6~450mm/s 之间以 ~2.5Hz 来回摆(12 个路点 = 停 12 次),
+            # 肉眼看就是"下夹爪的时候在抖"。
+            #
+            # 现在：路点之间用 Catmull-Rom(C1 连续)插值，整段用**一条** smoothstep
+            # 时间律(只在起点/终点速度为 0)，每帧把参考点直接写进伺服目标。
+            # 速度连续、中间不停，TCP 仍然沿着规划的笛卡尔直线走。
             wps = ap["qs"][ph]
-            k = ap.get("wp", 0)
             if not ap.get("sent"):
-                self.send_joint_command(wps[k], duration=0.25,
-                                        joint_names=ap["arm_names"])
+                # 清掉上一段遗留的 smoothstep 插值: 否则它会继续按旧目标写
+                # 伺服目标，和本段的流送打架(位置被来回拽 = 又一种抖)。
+                self._motion = None
                 ap["sent"] = True
-            elif el > 0.28 and self._motion is None:
-                k += 1
-                if k >= len(wps):
-                    nxt("close" if ph == "descent" else "settle")
-                else:
-                    ap["wp"] = k
-                    ap["sent"] = False
-                    ap["t"] = time.time()
+                ap["t"] = time.time()
+                return
+            T = float(ap["traj_T"][ph])
+            u = min(el / T, 1.0)
+            q = self._traj_sample(wps, smoothstep(u))
+            self.send_joint_command(q.tolist(), duration=0.0,
+                                    joint_names=ap["arm_names"])
+            if u >= 1.0 and (el > T + 2.0
+                             or self._arm_err(ap, np.asarray(wps[-1], float))
+                             < 0.03):
+                # 走完 ≠ 手臂停了: 合爪前还有 preclose 等实测速度归零
+                nxt("preclose" if ph == "descent" else "settle")
+
+        elif ph == "preclose":
+            # 等**实测**关节速度真的接近 0 再合爪(超时兜底 1.5s)
+            if el > 1.5 or (el > 0.35 and self._arm_at_rest(ap)):
+                nxt("release" if ap.get("place_mode") else "close")
+
+        elif ph == "release":
+            # 放置：下压到位后张开手指，把物体留在桌面上，再抬起
+            if el > 1.6 and self._arm_at_rest(ap):
+                ap["placed"] = True
+                ap["wp"] = 0
+                ap["sent"] = False
+                nxt("ascent")
 
         elif ph == "close":
-            if el > 2.2:
+            # **缓慢合爪**：把开口比例从**当前实测值**按 smoothstep 渐变到目标
+            # 值，每帧下发一个中间值。
+            #
+            # 为什么要渐变：`set_gripper_position` 是把主动关节目标**一步**写到
+            # 位，驱动会立刻以 maxVelocity(4 rad/s) 把指垫甩过去撞在物体上。
+            # 夹爪驱动是 acceleration 型且刚度已提到 100000(等效 ~280 N·m/rad)，
+            # 这一下的反作用力矩直接作用在腕部 —— 整条手臂被拽得**大幅度晃一下**
+            # (用户 2026-10-14 实测："合爪准备抓取的时候会大幅度晃一下")。
+            # 渐变之后加速度有界、接触是"压上去"而不是"撞上去"。
+            #
+            # f0 每帧读**实测**角度反查，所以重试补夹时会从当前开口继续收，
+            # 不会退回全开。
+            T = float(ap.get("close_T", 1.0))
+            if el < T:
+                try:
+                    names = list(self.articulation.dof_names)
+                    cur = float(np.asarray(self.articulation.get_joint_positions())
+                                .reshape(-1)[names.index(
+                                    self._GRIPPER_LEADER[side])])
+                    f0 = gripper_model.fraction_for_leader(cur)
+                except Exception:
+                    f0 = 1.0
+                self.set_gripper_position(
+                    side=side, fraction=f0 + (float(ap["frac"]) - f0)
+                    * smoothstep(el / T))
+                return
+            if el > T + 1.2:
                 try:
                     gp = self.get_gripper_position(side)
                     pr = self._grasp_link_T(f"{side}_gripper_right_pad_link")[:3, 3]
@@ -1398,6 +1937,11 @@ class RobotManager:
 
         elif ph == "settle":
             if el > 1.2:
+                if ap.get("place_mode"):
+                    # 放置段走完(张开 + 抬起 + 停稳) → 收工
+                    ap["note"] = "已抓取并放下"
+                    self._auto_pick_finish("完成（已放下）")
+                    return
                 # 任务级自检: 抬完看物体有没有真的跟着起来。单次抓取的物理
                 # 成功率只有 ~50-70%(指垫差最后零点几毫米没接触), 但"重放重抓"
                 # 两三次就能把整体成功率拉上去。
@@ -1406,6 +1950,21 @@ class RobotManager:
                     self._auto_pick_finish("完成")
                 elif ok:
                     ap["lifted_ok"] = True
+                    # 夹住了 → 如果给了放置点，接着走"放下"这一段：
+                    # 复用同一套 pre/descent/ascent 规划，只是目标换成放置点、
+                    # 收尾从"合爪"换成"张开"。
+                    if ap.get("place_at") and not ap.get("placed"):
+                        tgt = self._place_target(ap)
+                        if tgt is not None:
+                            ap["place_mode"] = True
+                            ap["plan_target"] = tgt
+                            for k in ("qs", "plan_gen", "plan_best",
+                                      "grip_retry", "grip_added", "wp"):
+                                ap.pop(k, None)
+                            logger.info(f"自动抓取: 已夹住 → 转到放置点 "
+                                        f"{np.round(tgt, 3).tolist()}")
+                            nxt("plan")
+                            return
                     self._auto_pick_finish("完成")
                 elif ap.get("task_retry", 0) < 2:
                     ap["task_retry"] = ap.get("task_retry", 0) + 1
@@ -1532,6 +2091,9 @@ class RobotManager:
 
         add_reference_to_stage(usd_path, prim_path)
         logger.info(f"USD 机器人已挂载: {usd_path} -> {prim_path}")
+        # USD 路径拿不到 URDF 的 <mimic> 表 → 清掉上一次的，退回命名规则建表
+        self._urdf_mimic = None
+        self._fix_visual_materials(prim_path)
         # 必须在 Articulation 创建前修正增益，PhysX 构建时才会用新参数
         self._fix_gripper_joint_gains(prim_path)
 
@@ -1619,24 +2181,41 @@ class RobotManager:
             logger.warning(f"config.json 读取失败（使用默认参数）: {e}")
             return {}
 
-    def _apply_home_pose(self):
-        """加载后把 robot.home_pose（config.json）写入关节目标。
-        未知关节名跳过并告警——URDF 零位=双臂下垂时，在此配置基础姿态。"""
-        pose = (self._config or {}).get("home_pose", {})
-        pose = {k: v for k, v in pose.items()
+    def _home_pose_values(self):
+        """config.json 的 `home_pose` 里**当前机器人能用的**关节值 (dict)。
+
+        `home_pose` 是按臂型标定的（7 轴旧臂 vs 6 轴 RM65 运动学不同，
+        同一组角度摆出来完全不是一个姿势），所以**整侧校验**：一侧的
+        `arm_1..6 + wrist` 必须**全部**存在才采用，缺一个就整侧跳过——
+        宁可保持零位，也不要拿 7 轴的值去摆 6 轴的臂。
+        """
+        pose = (self._config or {}).get("home_pose", {}) or {}
+        pose = {k: float(v) for k, v in pose.items()
                 if not k.startswith("_") and isinstance(v, (int, float))}
-        if not pose:
-            return
-        names = list(self.articulation.dof_names)
-        applied = {}
-        for name, val in pose.items():
-            if name in names:
-                applied[name] = float(val)
-            else:
-                logger.warning(f"home_pose 关节名不存在，已跳过: {name}")
+        if not pose or self.articulation is None:
+            return {}
+        names = set(self.articulation.dof_names)
+        out = {}
+        for side in ("left", "right"):
+            keys = [f"{side}_arm_{i}_joint" for i in range(1, 7)]
+            if f"{side}_wrist_joint" in pose:
+                keys.append(f"{side}_wrist_joint")
+            if all(k in names for k in keys) and all(k in pose for k in keys):
+                out.update({k: pose[k] for k in keys})
+            elif any(k in pose for k in keys):
+                logger.warning(
+                    f"home_pose: {side} 臂的关节对不上当前机器人"
+                    f"(缺 {[k for k in keys if k not in names]})，整侧跳过")
+        return out
+
+    def _apply_home_pose(self):
+        """加载后把 `home_pose`（config.json）写入关节目标。
+        未知关节名跳过并告警——URDF 零位=双臂水平前伸时，在此配置基础姿态。"""
+        applied = self._home_pose_values()
         if not applied:
             return
         try:
+            names = list(self.articulation.dof_names)
             idxs = [names.index(n) for n in applied]
             targets = np.asarray(
                 self.articulation.get_joint_positions()).reshape(-1).copy()
@@ -2054,7 +2633,22 @@ class RobotManager:
         max_wz = float(self._base_cfg.get("max_wz", 1.6))
         vx = max(-max_vx, min(max_vx, float(vx)))
         wz = max(-max_wz, min(max_wz, float(wz)))
+        # **只在"从静止转为驱动"的那一次唤醒**：`_update_base_velocity` 在速度
+        # 为 0 时会撒手不写目标（见那里的注释），撒手之后 articulation 进入
+        # sleep，而**睡着时写位置目标唤不醒它**（实测底盘只走 1.7mm / 5s）；
+        # 写一次关节速度能可靠唤醒。
+        # **不能每次 set_base_velocity 都写** —— 客户端 10Hz 发指令，每帧把
+        # 速度写回采样值会把加速过程打断（实测底盘从 963mm/6s 掉到 50mm/6s）。
+        engage = self._base_cmd is None
         self._base_cmd = {"vx": vx, "wz": wz, "t": time.time()}
+        if engage and (vx != 0.0 or wz != 0.0):
+            try:
+                v = np.asarray(
+                    self.articulation.get_joint_velocities()).reshape(-1)
+                self.articulation.set_joint_velocities(
+                    v.reshape(1, -1).astype(np.float32))
+            except Exception:
+                pass
         return {"vx": vx, "wz": wz,
                 "timeout": float(self._base_cfg.get("timeout", 0.5))}
 
@@ -2074,10 +2668,30 @@ class RobotManager:
             return
         cmd = self._base_cmd
         if time.time() - cmd["t"] > float(self._base_cfg.get("timeout", 0.5)):
-            # 失联刹停：速度归零并保持（drive 继续锁住位置目标）
+            # 失联刹停：速度归零
             cmd["vx"] = 0.0
             cmd["wz"] = 0.0
         vx, wz = cmd["vx"], cmd["wz"]
+
+        # **速度已经是 0 就彻底撒手**，别再每帧写轮子位置目标。
+        #
+        # 为什么：`set_joint_position_targets` 会**一直把整个 articulation
+        # 唤醒**，而唤醒状态下这台机器人有 0.3~4 mrad 的宽带微振、link 摆幅
+        # 1~4mm（实测 2026-10-14）。以前 `set_base_velocity` 一旦被调用过，
+        # `_base_cmd` 就永久非空 → 每帧都在写 → 机器人**永远睡不着** →
+        # 用户看到的"静止待机也在抖"。
+        #
+        # 实测对照（同一场景，只改这一条）：
+        #   调过一次 set_base_velocity(0,0) 后：head_pitch 抖动 4.006 mrad、
+        #                                      轮子 0.38 mrad、|v| 峰 2.0 rad/s
+        #   清掉 _base_cmd 后：                  全部 0.000，完全静止
+        # 与轮子刚度无关（刚度 0 / 203 都是 ~3.4~4.1 mrad）。
+        if vx == 0.0 and wz == 0.0:
+            # 只"停止写目标"，**不要**把轮子刚度也松开 —— 松开后轮子会自由
+            # 空转（实测位置极差 12.5 rad ≈ 两圈），机器人变成会滚的，更糟。
+            self._wheel_pos_target = None
+            self._base_cmd = None
+            return
         r = float(self._base_cfg.get("wheel_radius", 0.1594))
         tr = float(self._base_cfg.get("track_width", 0.585))
         ls = float(self._base_cfg.get("left_sign", -1.0))
@@ -2113,21 +2727,37 @@ class RobotManager:
         tgt = self._wheel_pos_target.reshape(1, -1).astype(np.float32)
         arti.set_joint_position_targets(tgt, joint_indices=idx)
 
-    def get_joint_states(self):
-        """查询关节指令/反馈。无 ROS2 桥时 feedback = articulation 实际位置。"""
+    def get_joint_states(self, full: bool = False):
+        """查询关节指令/反馈。无 ROS2 桥时 feedback = articulation 实际位置。
+
+        默认与 `get_joint_names` **同口径**（隐藏夹爪跟随关节），两者的
+        `dof_names[i]` ↔ `feedback[i]` 一一对应；`full=true` 给全量。
+        """
         if self._ros_controller is None:
             self._require_robot()
             fb = self._joint_positions_flat()
-            return {
-                "cmd": list(getattr(self, "_last_direct_cmd", [])),
-                "feedback": fb,
-                "feedback_received": True,
-                "ros": False,
-            }
+            cmd = list(getattr(self, "_last_direct_cmd", []))
+            ros = False
+        else:
+            fb = list(self._ros_controller.get_feedback_positions())
+            cmd = list(self._ros_controller.get_cmd_positions())
+            ros = True
+        hide = self._gripper_followers
+        n_all = len(self.articulation.dof_names) if self.articulation else 0
+
+        def _filt(v):
+            # 只在长度对得上整机 DOF 时过滤（ROS 桥可能只订了子集）
+            if full or len(v) != n_all:
+                return v
+            return [x for i, x in enumerate(v) if i not in hide]
+
         return {
-            "cmd": self._ros_controller.get_cmd_positions(),
-            "feedback": self._ros_controller.get_feedback_positions(),
-            "feedback_received": self._ros_controller.is_feedback_received(),
+            "cmd": _filt(cmd),
+            "feedback": _filt(fb),
+            "feedback_received": (True if not ros
+                                  else self._ros_controller.is_feedback_received()),
+            "ros": ros,
+            "hidden": (0 if full or not n_all else len(hide)),
         }
 
     # ==================== 内部 ====================

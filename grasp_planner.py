@@ -229,6 +229,14 @@ def _plan_grasp_at(chain, q0, limits, T_ab_col, tcp_local, jaw_local, obj_c,
     # 把它推走(用户实测"下去的时候不是垂直下去的, 会歪一下")。
     # 所以把直线打成密集路点, 每段只走一小步。
     def _seg(p_from, p_to, n, q_seed):
+        """从 `q_seed` 所在的位形出发，沿直线打 n 步。
+
+        **第 0 个点必须是起点本身**（调用处 prepend），否则第一帧指令就是
+        "起点往前一步"的**阶跃**——手臂被拽一下。实测抬升段第一点是 grasp
+        上方 25mm、下降段第一点是 pre 下方 21mm，对应"抓起来的那一刻会晃一下"
+        （用户 2026-10-14）。`smoothstep` 时间律本身是从零速度起步的，被这个
+        阶跃毁掉了。
+        """
         out, seed = [], np.asarray(q_seed, float)
         for k in range(1, n + 1):
             tgt = p_from + (p_to - p_from) * (k / n)
@@ -240,9 +248,13 @@ def _plan_grasp_at(chain, q0, limits, T_ab_col, tcp_local, jaw_local, obj_c,
         return out
 
     obj = np.asarray(obj_c, float)
-    qs["descent"] = _seg(obj + np.array([0.0, 0.0, approach]), obj,
-                         max(2, int(descent_steps)), qs["pre"])
-    qs["ascent"] = _seg(obj, obj + np.array([0.0, 0.0, lift]),
-                        max(2, int(lift_steps)), qs["grasp"])
+    # 起点接上：pre 位形 → 直线下降到 obj；grasp 位形 → 直线抬到 obj+lift。
+    # 这样整段的第一个路点 = 当前实际位形，伺服目标连续、没有阶跃。
+    qs["descent"] = [np.asarray(qs["pre"], float)] + _seg(
+        obj + np.array([0.0, 0.0, approach]), obj,
+        max(2, int(descent_steps)), qs["pre"])
+    qs["ascent"] = [np.asarray(qs["grasp"], float)] + _seg(
+        obj, obj + np.array([0.0, 0.0, lift]),
+        max(2, int(lift_steps)), qs["grasp"])
 
     return qs, {"infos": infos}

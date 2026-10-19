@@ -79,3 +79,13 @@ metadata:
 - cthm3f460 版的人形上装合并文件尚未制作（同样注意保留其腕部相机部分）
 - 切割位置 ZJ y<0.048 / 挂载 y=±0.05 是按壳体前端面定的，若用户希望保留原夹爪轭架或调整间隙可再调
 - 相机版待办：Gemini 305 尺寸/质量核实后重跑 add_cameras.py；限位扫掠结果待确认无新干涉；ZED 驱动接入时 base_frame 用对应 *_link
+
+2026-10-13 双臂换装完成（rm65 变体，`humanoid_upper_body_v3_ctag2f120_rm65_isaac.urdf`）：
+- 用户最终选定形态：**arm_6 直连夹爪（无腕壳）**，与交付包 `assets/deliver/RM65-6FB-V_ctag2f120/` 完全一致；用户原话「不用管腕壳，交付包 URDF 已有相机预留位」——预留位 = 交付包 link_6 上的相机链 camera_rojoint(转台0~1.05rad)→camera_joint(fixed)→camera_link
+- 一键脚本 `scripts/install_standalone_arm.py`（幂等+自动备份，`--wrist direct|shell`）：删腕壳/自转90°(rpy 0 0 1.5708)/剥夹爪collision留4指垫/补相机链(原值照搬,parent={side}_arm_6_link,mesh拷进 meshes/{visual,collision})/gains 夹爪5000/50+相机转台50/0.5。结果 61 link / 60 joint，50 DOF
+- robot_manager：`_apply_static_camera_offsets` 改 step() 每帧调用（腕部相机跟转），offsets 按 mtime 缓存；`cam_follow_offsets.json` 腕部两条 parent={side}_camera_link
+- 实测：夹爪 0.5/43/86mm 双侧对称；腕部相机图能看到两指；转 arm_6 90° 相机跟转
+- 坑：pkill -f "18766" 匹配的是自己 bash 包装命令（服务进程 cmdline 不含端口号）→ pkill 杀不到要杀的进程反而自杀（exit 144）；按 pgrep 出的 PID kill。/python 端点 exec 命名空间里是 `executor`，没有 standalone_server 模块
+- **同会话重复 load_urdf 会让 URDF 导入器崩溃**（`libisaacsim.asset.importer.urdf.plugin.so` 里 AddTranslateOp 段错误，Fatal 直接杀进程）→ 改完 URDF 要**重启服务再加载**，不要原地 reload
+- **2026-10-13 臂根贴胸腔**（用户："机械臂的根部要跟机器人身体贴紧"）：臂根法兰（RM65 base_link 网格局部 z=0 端面）原在 y=±0.095，胸腔壳体（torso_pitch_link 的 XQ.STL）在臂根投影范围内侧面只到 y=±0.043 → **52mm 悬空**。`lift_to_{side}_arm_joint` 的 y 0.094/-0.096 → 0.0425/-0.0445（内移 51.5mm），法兰落到 ±0.0435，实测贴合 0.61/0.62mm。⚠ 臂整体内移 51.5mm ⇒ 之前基于旧挂装的 IK/可达范围标定、arm_2/arm_4 限位扫掠结果都需复检
+- **量 link 网格世界位姿要用 USD 矩阵**（`UsdGeom.Xformable(...).ComputeLocalToWorldTransform`，行向量约定），**不要**用 `_physics_view.get_link_transforms()` 的四元数按 (w,x,y,z) 解——实测那套解出来会把 link 坐标系转错 90°，得出"臂根朝里伸"的假结论（正确是朝外）

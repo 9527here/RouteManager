@@ -1,12 +1,25 @@
 # Memory Index
 
-- [Gripper swap task](gripper-swap-task.md) — 把 changingtek 夹爪换进人形上装 URDF；ctag2f120 已合并+修复转腕关节，cthm3f460 版未做
+- [Gripper swap task](gripper-swap-task.md) — 把 changingtek 夹爪换进人形上装 URDF；ctag2f120 已合并+修复转腕关节，cthm3f460 版未做；2026-10-13 双臂 RM65 直连版完成（install_standalone_arm.py 一键幂等）
 - [Ask user for data, don't guess](ask-user-for-data-dont-guess.md) — 需要规格/实测数据必须列清单向用户要，推定值必须标注，不自己猜
 - [RouteManager project](routemanager-project.md) — Isaac 仿真 HTTP 服务器；env=isaacsim5.1；2026-09-23 七项修复（ROS2 闭环/加载等待/相机挂载等），实机链路未测
 - [Isaac Teleop docs](isaac-teleop-docs.md) — XR 遥操作框架文档；1.6 起包名 isaaccapture；VLA 数据采集前端备选
 - [Realman×Pico 遥操作](realman-pico-teleop.md) — rm_driver CANFD 透传要点、官方 XRoboToolkit 控制律（P 矩阵与仿真一致）、真机复刻代码位置
 - [关节正方向实测法](joint-sign-measurement.md) — head_yaw 正值=右转（URDF 推反了）；驱动关节+抓图测质心位移的通用判定法；/python 不回显 result 要用写文件
 - [场景摩擦≈0](scene-friction-zero.md) — 抓不住/机器人打滑的根因；static_scene.usda 加材质+地面绑材质；过盈可降到 0.5mm
-- [夹爪 mimic 链与指令接口](gripper-mimic-chain.md) — 主动关节力矩被跟随关节反锁=闭不到底；leader↔开口实测表；TCP 随开口漂移 11mm；抓取配方（过盈 3mm）；set_gripper_position 睿尔曼语义；部分下发治身体塌陷
+- [夹爪 mimic 链与指令接口](gripper-mimic-chain.md) — **主动关节是两个：ctag_R2(右指根)+ctag_L2(左指根)，只驱动 R2 在不支持 mimic 的工具里打不开**；主动关节力矩被跟随关节反锁=闭不到底；leader↔开口实测表；TCP 随开口漂移 11mm；抓取配方（过盈 3mm）；set_gripper_position 睿尔曼语义；部分下发治身体塌陷；闭合穿模=acceleration 型驱动刚度被小惯量吃掉，stiffness 要 5000
 - [自动抓取（VR 菜单键）](auto-pick-menu-key.md) — 左手菜单键→抓最近物体；非阻塞状态机；grasp_planner 共用；遥测字段
 - [仿真臂 vs 官方 RM65](arm-model-vs-official-rm65.md) — 已重建：官方6轴(891mm与官方逐位相同)；腕壳旧夹爪安装板已切(cut_wrist_shell.py，相机在壳顶不受影响)；rm65变体+build脚本+5.x load_urdf修复(两步流程/defaultPrim/热reload失效)；config robot.name 已指向 rm65
+- [URDF 颜色不生效](urdf-materials.md) — 导入器把颜色做成 link 级 material_<hex>，但被更近的 mesh 级空壳 DefaultMaterial 盖住；去实例化 visuals 后摘掉它；必须从 GetPrototype 读才判得出来；官方 RM65/CT 的颜色表
+- [GUI 里手动驱动关节](gui-joint-control.md) — Physics Inspector 的 Joint Drives Target Position 滑块；写 USD targetPosition 不传 PhysX；Script Editor 用 standalone_server.EXECUTOR；必须跑服务否则夹爪散架；相机与夹爪同在 link_6，转 joint_6 无效
+- [GitHub/GitLab 推送链路](github-push-large-files.md) — ssh.github.com:443+SOCKS5；历史大文件 filter-repo 清洗；GH001；双远端双推(GitLab 子组 vla/RouteManager，main 受保护禁强推)；提交人已改 o_range
+- [抓取下降段抖动](auto-pick-descent-jitter.md) — 根因是每个笛卡尔路点发一次 `send_joint_command` → smoothstep 两端速度为 0 = N 次启停；改成 Catmull-Rom + 单条 smoothstep 时间律每帧流送；另附"别用墙钟算速度"的采样假象教训
+- [RM65 抓不住 vs 旧臂抓得住](rm65-grasp-vs-old-arm.md) — 失败在合爪接触几何：旧臂虎口偏 3.4° 咬棱、方块落进楔形锁死；RM65 虎口对正、指垫平贴零力接触。附完整排除清单 + 两个被证伪的假设 + 位姿矩阵约定坑
+- [抓不住/"抓住但抓不起来"根因链](rm65-grasp-failure-root-cause.md) — **结案**：三个缺陷叠加（夹爪连杆碰撞被剥、下降段在手臂没到位时就开跑 16°、夹爪驱动等效刚度只有 14 N·m/rad）；修完 0/N → 8/10，抬升 188mm 不滑
+- [底盘推不动](base-wheel-drive-stiffness.md) — 轮关节被烘成 `stiffness 0 / damping 99.7` 纯阻尼，位置目标被忽略；`_tune_wheel_drives` 补成 203/0.08，5 秒 1.1mm → 963mm
+- [远物抓取：降机身 + 接近轴铅垂](grasp-verticality-and-body-lowering.md) — 规划选的 body_dz 以前被丢掉(真 bug)；修好后远物自动降 0.18m，接近轴偏离铅垂 0.3°
+- [臂的增益不是官方值](arm-gains-vs-official.md) — 质量/惯量来自 URDF 是官方的；官方 URDF 没有 `<dynamics>`，阻尼是我们烘的；附在 Isaac 里核对驱动参数的三种方法
+- [颈部/相机转台阻尼](neck-camera-damping.md) — 烘出来的 damping 只有 0.02(几乎自由关节)，手臂一动头就点头 3.5°；`_tune_neck_drives` 按 ζ=1.5 补
+- [静止待机抖动](idle-jitter-wake-lock.md) — 根因是 `set_base_velocity` 一旦调用过就永久每帧写轮子目标、把整机锁在唤醒态；PhysX 睡着=完全静止、醒着=0.3~4mrad 宽带微振；修完静止抖动 0.979→0.000。附官方 Gripper Tuning 方法与被排除的做法
+- [人形 URDF 对外交付包](humanoid-urdf-delivery.md) — assets/deliver/ 的包结构约定；源用 rm65_isaac 那份；visual 精简/collision 原样；open3d 精简后必须先算面法线否则写盘静默失败
+- [STEP→USD HOOPS 导入验收](step-hoops-import.md) — headless 调 hoops_core 转 STEP；原型实例化导致 Traverse 数不到 Mesh；mm 双层 wrapper + 180° 翻转落地；pxr 先开 stage 会搞崩 World；Gf Matrix3d.SetRow 按列存坑；6 开口曲面=相机/电机外购件

@@ -16,6 +16,19 @@ mimic 链在 URDF 里是**链式**的，扁平化到主动关节后的倍率：
 
 `robot_manager._build_mimic_map()` 的命名规则（`left_main`/`left_3`→−1、`_1_joint`→−0.15、其余+1）与上表**完全一致**，是对的。
 
+**2026-10-12 改成读 URDF**：命名规则只认人形关节名，单独加载官方
+`assets/RM65-6FB-V/urdf/RM65-6FB-V_ctag2f120_isaac.urdf`（关节叫 `ctag_R2`/
+`ctag_Left_in`）时一个都认不出来。现在 `load_urdf` 会解析 URDF 的 `<mimic>`
+标签填 `_urdf_mimic`，`_build_mimic_map` 优先用它并**链式展开**到根主动关节
+（`Left_in→L2→R2` 展开成倍率 1；`L3→R3→R2` 展开成 −1）。走 `load_robot` 加载
+已转换 USD 时拿不到 URDF，自动退回命名规则，人形行为不变。
+`set_gripper_position` 的主动关节也改成可解析：命名对不上且 mimic 表里只有
+一个主动关节时直接用它（单臂场景）。
+
+**单独看机械臂**：`config.json` 预设 `rm65_ctag2f120` → 官方 RM65+原厂 CT 夹爪，
+`./scripts/load_scene.sh -n rm65_ctag2f120`（或直接 `load_urdf` 传 `fix_base=true`，
+否则臂会倒）。19 DOF，对外只暴露 8 个（6 臂 + camera_rojoint + `ctag_R2`）。
+
 ## 驱动上限力矩：夹爪闭不下去的真正原因（2026-10-09）
 
 资产里**主动关节的 `max_force` 只有 20 N·m，11 个跟随关节是 30 N·m** ——
@@ -93,6 +106,53 @@ mimic 链在 URDF 里是**链式**的，扁平化到主动关节后的倍率：
 
 另外 `_apply_software_mimic()` 必须排在 `apply_pending()` **之后**（`step()` 里），
 否则跟随关节比主动关节晚一帧。
+
+## 主动关节是 **两个**：`ctag_R2` 和 `ctag_L2`（2026-10-12 用户纠正）
+
+之前说「只有 `ctag_R2` 一个主动关节」是错的。运动学树：
+
+```
+ctag_base_link
+├─ ctag_R2 ── ctag_Right_in ── [Right_Pad]   右指根关节
+└─ ctag_L2 ── ctag_Left_in  ── [Left_Pad]    左指根关节
+   （R3/Right_Main/R1/Right_Slip/L3/Left_Main/L1/Left_Slip 是两指内部的连杆）
+```
+
+厂家 URDF 里**只有 R2 和 L2 写 `effort="2"`，其余 10 个全是 `effort="0"`** ——
+这是"哪两个是真关节"的明确信号。
+
+`ctag_L2` 带 `<mimic joint="ctag_R2" x1>`，所以在**支持 mimic 的工具**里只给 R2 就行；
+但 PyBullet 完全不支持 mimic、Isaac 要开 `parse_mimic`。**在不支持 mimic 的地方
+只驱动 `ctag_R2`，左指一动不动，看起来像夹爪坏了**（2026-10-12 实测：把
+`_mimic_map` 置 None 后拉 R2 到 0，只有 R2 动，其余 11 个全停在原位）。
+
+对策（发 URDF 给别人的时候尤其重要）：给一张 12 关节的显式取值表 ——
+θ = 0(闭)~0.7(开)：
+  · `R2` `L2` `Right_in` `R3` `Right_Main` `Right_Slip` `Left_in` `Left_Slip` = **+θ**
+  · `L3` `Left_Main` = **−θ**
+  · `R1` `L1` = **−0.15θ**
+见 `assets/deliver/RM65-6FB-V_ctag2f120/scripts/ctag_gripper.py`。
+
+## 夹爪闭合「穿模」= 驱动是 acceleration 型，刚度被惯量吃掉（2026-10-12）
+
+**症状**：夹爪合拢时左右指连杆互相插进去（`ctag_Right_in_Link ↔ ctag_Left_Pad_Link`
+29 个顶点、`ctag_Right_Pad_Link ↔ ctag_Left_in_Link` 15 个）。
+
+**不是模型问题**：纯 FK 在厂家 URDF 上逐角扫过，`R2=0` 时只有两片指垫**刚好贴合**
+（中心距 2.00mm = 2×垫厚），其余全干净。厂家 CAD 是「压紧」位，不是穿模。
+
+**真因**：跟随关节**没到位**。命令 0，实测停在 +0.0755 rad —— 左右指的 `*_in`
+连杆各偏 4.3°，于是插进对方。
+再往下：导入器把驱动写成 **`drive:angular:physics:type = acceleration`**，
+刚度按**惯量折算**。指节 `JointEquivalentInertia` 只有 2.1e-4 kg·m²，
+k=100 折出来等效刚度才 **1.2 N·m/rad** —— 0.09 N·m 的重力负载就压出 4.3° 偏差。
+臂的关节用同一个 k 没事，是因为它惯量大 800 倍（0.16）。
+
+**修法**：`*.gains.json` 里夹爪 12 个关节 **stiffness 100 → 5000、damping 5 → 50**。
+实测残差 0.0755 → **0.0008 rad**，速度 0 不振铃，FK 复检无穿插。
+（残差 < 0.003 rad 就不会穿插，这是扫出来的阈值。）
+单独加载官方 RM65+CT 时关节叫 `ctag_*`，`_tune_gripper_drives` 的
+`"gripper" in n` 过滤条件要一起放宽，否则力矩上限提不上去。
 
 ## 指令接口（仿真/真机同刻度）
 

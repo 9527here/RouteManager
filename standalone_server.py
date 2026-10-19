@@ -322,6 +322,14 @@ def build_app(task_timeout=7200.0):
 # 默认需要等待 stage 资产加载完成的 action（可用构造参数覆盖）
 DEFAULT_LOADING_TASKS = {"load_scene", "load_urdf", "load_robot", "add_camera"}
 
+#: main.py 启动时把 RobotManager 实例挂在这里，**专供 Isaac Sim 的 Script Editor**。
+#: Script Editor 有自己的命名空间，看不到 main() 的局部变量，只能通过模块属性拿：
+#:     import standalone_server as ss
+#:     ss.EXECUTOR.set_gripper_position(side="right", position=500)
+#: 注意 Script Editor 跑在仿真主线程上，**不要**在里面发 HTTP 请求打自己的端口，
+#: 会死锁（HTTP 线程要等主线程空闲）。
+EXECUTOR = None
+
 
 class IsaacTaskServer:
     """双线程 Isaac Sim 任务服务器。

@@ -11,7 +11,21 @@
     "interval": 2
   },
   "home_pose": {
-    "_comment": "启动后各关节的目标角度（rad），key=关节名。手臂塌下去说明 URDF 零位=双臂下垂，在此填入想要的基础姿态即可；留空 = 保持全 0"
+    "_comment": "启动后各关节的目标角度(rad)，key=关节名。URDF 零位 = 双臂水平前伸(很怪)，这里配成**自然下垂**(2026-10-13 关节空间搜索: 肘在肩下 ~24cm、手垂到肩下 ~50cm、|y| 收在 0.15 内)。这套值是 **7 轴旧臂**标定的(带 *_wrist_joint)；RM65 六轴版臂段运动学不同，_apply_home_pose 检测到缺 wrist 关节就整侧跳过，不会拿错值去摆——六轴版要另算一套",
+    "right_arm_1_joint": -2.752,
+    "right_arm_2_joint": -1.843,
+    "right_arm_3_joint": -2.136,
+    "right_arm_4_joint": 1.427,
+    "right_arm_5_joint": -0.556,
+    "right_arm_6_joint": 1.762,
+    "right_wrist_joint": -1.075,
+    "left_arm_1_joint": -2.846,
+    "left_arm_2_joint": -1.722,
+    "left_arm_3_joint": 0.364,
+    "left_arm_4_joint": -0.124,
+    "left_arm_5_joint": 1.374,
+    "left_arm_6_joint": -1.053,
+    "left_wrist_joint": -0.219
   },
   "teleop": {
     "_comment": "VR 遥操作配置。arm_joints 留空则按 shoulder/elbow/wrist 名称自动识别；控制器平移分量依次映射到关节列表顺序",
@@ -40,7 +54,10 @@
     "left_sign": -1.0,
     "right_sign": 1.0,
     "max_vx": 0.6,
-    "max_wz": 1.6
+    "max_wz": 1.6,
+    "wheel_stiffness": 203.0,
+    "wheel_damping": 0.08,
+    "_comment_wheel": "轮关节驱动刚度(USD 级)。人形资产的 gains.json 烘出来是 0/99.7=纯阻尼，位置目标被忽略 → 底盘推不动(5s 只走 1mm)。robot_manager._tune_wheel_drives 在加载后统一补成这里的值；203/0.08 实测 0.16 m/s。"
   },
   "robot": {
     "name": "v3_ctag2f120_rm65",
@@ -52,6 +69,11 @@
       "v3_ctag2f120_rm65": {
         "_comment": "官方 RM65-6FB-V 六轴臂重建版(scripts/build_rm65_arm.py 生成)。urdf_path 走 load_urdf 自动转换(2026-10-10 修好 5.x 两步流程); 转换产物 usd 与 URDF 同目录",
         "urdf_path": "/home/jy/datasets/vla_data/L1_制作资产/载体设备/humanbody_urdf/humanoid_upper_body_v3/urdf/humanoid_upper_body_v3_ctag2f120_rm65_isaac.urdf",
+        "prim_path": "/humanoid"
+      },
+      "rm65_ctag2f120": {
+        "_comment": "单独的官方 RM65-6FB-V + 原厂 CT 夹爪(12 关节四连杆, 照搬厂家 URDF)。用于单独查看/验证机械臂, 不含人形本体。主动关节只有 ctag_R2, 其余 11 个由软件 mimic 跟随",
+        "urdf_path": "/home/jy/RouteManager/assets/RM65-6FB-V/urdf/RM65-6FB-V_ctag2f120_isaac.urdf",
         "prim_path": "/humanoid"
       },
       "v3_ctag2f120_cameras": {
@@ -86,5 +108,12 @@
   "gripper": {
     "_comment": "夹爪行程(mm): position 1000 对应的开口。仿真 ctag2f120 实测满行程 86.2; 真机 rm 夹爪是 70。可移植的是 position/1000 这个比例，不是毫米数",
     "stroke_mm": 86.2
+  },
+  "physics": {
+    "_comment": "物理场景级参数（PhysX Articulation Stability Guide）。enabled=false 时完全不写。2026-10-14 实测：开(稳定化+32位置迭代+contact-last) 与 关，静止抖动差异在噪声内(head_pitch 2.34 vs 1.18~3.99 mrad 单样本)，而 32 次迭代有性能代价，故默认关。",
+    "enabled": false,
+    "enable_stabilization": true,
+    "solver_position_iterations": 32,
+    "solve_articulation_contact_last": true
   }
 }

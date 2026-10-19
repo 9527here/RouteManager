@@ -109,6 +109,12 @@ def main():
 
     executor = RobotManager(simulation_app=sim_env.simulation_app, headless=headless)
 
+    # 让 Isaac Sim 的 **Script Editor** 能拿到执行器（它有自己的命名空间，
+    # 看不到 main() 里的局部变量）。GUI 里直接调仿真动作就靠这个：
+    #     import standalone_server as ss
+    #     ss.EXECUTOR.set_gripper_position(side="right", position=500)
+    standalone_server.EXECUTOR = executor
+
     # 3. 可选：从 config.json 加载 action 默认参数
     config_path = os.path.join(os.path.dirname(__file__), "config.json")
     if os.path.exists(config_path):

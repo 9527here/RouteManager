@@ -1,0 +1,615 @@
+<?xml version='1.0' encoding='utf-8'?>
+<robot name="RM65-6FB-V">
+  <link name="base_link">
+    <inertial>
+      <origin xyz="-0.00049987 -5.2709E-05 0.060019" rpy="0 0 0" />
+      <mass value="1.862" />
+      <inertia ixx="0.0017232" ixy="-3.1058E-06" ixz="3.7924E-05" iyy="0.0017051" iyz="-1.3691E-06" izz="0.00090158" />
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="/home/jy/RouteManager/assets/RM65-6FB-V/meshes/base_link.STL" />
+      </geometry>
+      <material name="">
+        <color rgba="1 1 1 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="/home/jy/RouteManager/assets/RM65-6FB-V/meshes/base_link.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <link name="link_1">
+    <inertial>
+      <origin xyz="0.000941 0.007803 -0.10744" rpy="0 0 0" />
+      <mass value="1.51" />
+      <inertia ixx="0.002662223" ixy="-0.000026849" ixz="-0.000013775" iyy="0.002331685" iyz="-0.000078667" izz="0.001663712" />
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="/home/jy/RouteManager/assets/RM65-6FB-V/meshes/link_1.STL" />
+      </geometry>
+      <material name="">
+        <color rgba="1 1 1 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="/home/jy/RouteManager/assets/RM65-6FB-V/meshes/link_1.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint name="joint_1" type="revolute">
+    <origin xyz="0 0 0.2405" rpy="0 0 0" />
+    <parent link="base_link" />
+    <child link="link_1" />
+    <axis xyz="0 0 1" />
+    <limit lower="-3.106" upper="3.106" effort="60" velocity="3.14" />
+  </joint>
+  <link name="link_2">
+    <inertial>
+      <origin xyz="0.183722 0.000103 -0.001665" rpy="0 0 0" />
+      <mass value="1.653" />
+      <inertia ixx="0.001706953" ixy="-0.000006995" ixz="0.001809254" iyy="0.014713776" iyz="0.000006223" izz="0.014239805" />
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="/home/jy/RouteManager/assets/RM65-6FB-V/meshes/link_2.STL" />
+      </geometry>
+      <material name="">
+        <color rgba="1 1 1 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="/home/jy/RouteManager/assets/RM65-6FB-V/meshes/link_2.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint name="joint_2" type="revolute">
+    <origin xyz="0 0 0" rpy="1.5708 -1.5708 0" />
+    <parent link="link_1" />
+    <child link="link_2" />
+    <axis xyz="0 0 1" />
+    <limit lower="-2.2689" upper="2.2689" effort="60" velocity="3.14" />
+  </joint>
+  <link name="link_3">
+    <inertial>
+      <origin xyz="0.000029 -0.090105 0.004039" rpy="0 0 0" />
+      <mass value="0.726" />
+      <inertia ixx="0.001350874" ixy="0.000001069" ixz="-0.000000228" iyy="0.000360021" iyz="-0.000219904" izz="0.001331598" />
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="/home/jy/RouteManager/assets/RM65-6FB-V/meshes/link_3.STL" />
+      </geometry>
+      <material name="">
+        <color rgba="1 1 1 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="/home/jy/RouteManager/assets/RM65-6FB-V/meshes/link_3.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint name="joint_3" type="revolute">
+    <origin xyz="0.256 0 0" rpy="0 0 1.5708" />
+    <parent link="link_2" />
+    <child link="link_3" />
+    <axis xyz="0 0 1" />
+    <limit lower="-2.356" upper="2.356" effort="30" velocity="3.14" />
+  </joint>
+  <link name="link_4">
+    <inertial>
+      <origin xyz="0.000007 -0.009486 -0.008041" rpy="0 0 0" />
+      <mass value="0.671" />
+      <inertia ixx="0.000690221" ixy="-0.000000865" ixz="-0.000000692" iyy="0.000552834" iyz="0.000016411" izz="0.000425835" />
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="/home/jy/RouteManager/assets/RM65-6FB-V/meshes/link_4.STL" />
+      </geometry>
+      <material name="">
+        <color rgba="1 1 1 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="/home/jy/RouteManager/assets/RM65-6FB-V/meshes/link_4.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint name="joint_4" type="revolute">
+    <origin xyz="0 -0.21 0" rpy="1.5708 0 0" />
+    <parent link="link_3" />
+    <child link="link_4" />
+    <axis xyz="0 0 1" />
+    <limit lower="-3.106" upper="3.106" effort="10" velocity="3.14" />
+  </joint>
+  <link name="link_5">
+    <inertial>
+      <origin xyz="0.000032 -0.083769 0.002326" rpy="0 0 0" />
+      <mass value="0.647" />
+      <inertia ixx="0.000834052" ixy="0.000000952" ixz="-0.000000257" iyy="0.000281767" iyz="-0.000111750" izz="0.000821714" />
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="/home/jy/RouteManager/assets/RM65-6FB-V/meshes/link_5.STL" />
+      </geometry>
+      <material name="">
+        <color rgba="1 1 1 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="/home/jy/RouteManager/assets/RM65-6FB-V/meshes/link_5.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint name="joint_5" type="revolute">
+    <origin xyz="0 0 0" rpy="-1.5708 0 0" />
+    <parent link="link_4" />
+    <child link="link_5" />
+    <axis xyz="0 0 1" />
+    <limit lower="-2.234" upper="2.234" effort="10" velocity="3.14" />
+  </joint>
+  <link name="link_6">
+    <inertial>
+      <origin xyz="-0.000569 0.00029 -0.010569" rpy="0 0 0" />
+      <mass value="0.14434" />
+      <inertia ixx="3.043E-05" ixy="2.622E-09" ixz="2.199E-08" iyy="3.604E-05" iyz="1.195E-08" izz="5.52E-05" />
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="/home/jy/RouteManager/assets/RM65-6FB-V/meshes/link_6.STL" />
+      </geometry>
+      <material name="">
+        <color rgba="0.75294 0.75294 0.75294 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="/home/jy/RouteManager/assets/RM65-6FB-V/meshes/link_6.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint name="joint_6" type="revolute">
+    <origin xyz="0 -0.18448 0" rpy="1.5708 0 0" />
+    <parent link="link_5" />
+    <child link="link_6" />
+    <axis xyz="0 0 1" />
+    <limit lower="-6.28" upper="6.28" effort="10" velocity="3.14" />
+  </joint>
+  <link name="camera_rolink">
+    <inertial>
+      <origin xyz="0.0080749 -0.044495 0.0085055" rpy="0 0 0" />
+      <mass value="0.019695" />
+      <inertia ixx="1.5115E-05" ixy="-1.9139E-06" ixz="-8.811E-09" iyy="2.7638E-06" iyz="6.7136E-09" izz="1.399E-05" />
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="/home/jy/RouteManager/assets/RM65-6FB-V/meshes/camera_rolink.STL" />
+      </geometry>
+      <material name="">
+        <color rgba="0.75294 0.75294 0.75294 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="/home/jy/RouteManager/assets/RM65-6FB-V/meshes/camera_rolink.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint name="camera_rojoint" type="revolute">
+    <origin xyz="-0.033 -0.0085 -0.05388" rpy="1.5708 -1.5708 3.14" />
+    <parent link="link_6" />
+    <child link="camera_rolink" />
+    <axis xyz="0 0 1" />
+    <limit lower="0" upper="1.05" effort="0" velocity="0" />
+  </joint>
+  <link name="camera_link">
+    <inertial>
+      <origin xyz="-0.009 -1.1052E-09 -0.011436" rpy="0 0 0" />
+      <mass value="0.03915" />
+      <inertia ixx="7.2029E-06" ixy="1.2847E-13" ixz="4.6827E-14" iyy="7.199E-06" iyz="4.4495E-13" izz="1.1014E-05" />
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="/home/jy/RouteManager/assets/RM65-6FB-V/meshes/camera_link.STL" />
+      </geometry>
+      <material name="">
+        <color rgba="0.79216 0.81961 0.93333 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="/home/jy/RouteManager/assets/RM65-6FB-V/meshes/camera_link.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint name="camera_joint" type="fixed">
+    <origin xyz="0.029031 -0.10022 -0.0005" rpy="0 1.5708 0" />
+    <parent link="camera_rolink" />
+    <child link="camera_link" />
+    <axis xyz="0 0 0" />
+  </joint>
+<joint name="ctag_R2" type="revolute">
+    <origin xyz="0.031809 0 0.15424" rpy="1.5708 0 0" />
+    <parent link="ctag_base_link" />
+    <child link="ctag_R2_Link" />
+    <axis xyz="0 0 -1" />
+    <limit lower="0.0" upper="0.7" effort="2" velocity="1000" />
+  </joint>
+  <joint name="ctag_Right_in" type="revolute">
+    <origin xyz="-0.006488 0.064675 0" rpy="0 0 0" />
+    <parent link="ctag_R2_Link" />
+    <child link="ctag_Right_in_Link" />
+    <axis xyz="0 0 1" />
+    <limit lower="0.0" upper="0.7" effort="0" velocity="0" />
+    <mimic joint="ctag_R2" multiplier="1" offset="0" />
+  </joint>
+  <joint name="ctag_Right_Pad" type="fixed">
+    <origin xyz="-0.024321 0.03825 0" rpy="0 0 0" />
+    <parent link="ctag_Right_in_Link" />
+    <child link="ctag_Right_Pad_Link" />
+    <axis xyz="0 0 0" />
+  </joint>
+  <joint name="ctag_R3" type="revolute">
+    <origin xyz="0.014489 0 0.16424" rpy="1.5708 0 0" />
+    <parent link="ctag_base_link" />
+    <child link="ctag_R3_Link" />
+    <axis xyz="0 0 -1" />
+    <limit lower="0.0" upper="0.7" effort="0" velocity="0" />
+    <mimic joint="ctag_R2" multiplier="1" offset="0" />
+  </joint>
+  <joint name="ctag_Right_Main" type="revolute">
+    <origin xyz="0.014489 0 0.16424" rpy="1.5708 0 0" />
+    <parent link="ctag_base_link" />
+    <child link="ctag_Right_Main_Link" />
+    <axis xyz="0 0 -1" />
+    <limit lower="0.0" upper="0.7" effort="0" velocity="0" />
+    <mimic joint="ctag_R2" multiplier="1" offset="0" />
+  </joint>
+  <joint name="ctag_R1" type="revolute">
+    <origin xyz="0.039847 -0.0034894 0" rpy="0 0 0" />
+    <parent link="ctag_Right_Main_Link" />
+    <child link="ctag_R1_Link" />
+    <axis xyz="0 0 1" />
+    <limit lower="-0.105" upper="0.0" effort="0" velocity="0" />
+    <mimic joint="ctag_R2" multiplier="-0.15" offset="0" />
+  </joint>
+  <joint name="ctag_Right_Slip" type="revolute">
+    <origin xyz="0.039847 -0.0034894 0" rpy="0 0 0" />
+    <parent link="ctag_Right_Main_Link" />
+    <child link="ctag_Right_Slip_Link" />
+    <axis xyz="0 0 1" />
+    <limit lower="0.0" upper="0.7" effort="0" velocity="0" />
+    <mimic joint="ctag_R2" multiplier="1" offset="0" />
+  </joint>
+  <joint name="ctag_L2" type="revolute">
+    <origin xyz="-0.031808 0 0.15424" rpy="1.5708 0 -3.1416" />
+    <parent link="ctag_base_link" />
+    <child link="ctag_L2_Link" />
+    <axis xyz="0 0 -1" />
+    <limit lower="0.0" upper="0.7" effort="2" velocity="1000" />
+    <mimic joint="ctag_R2" multiplier="1" offset="0" />
+  </joint>
+  <joint name="ctag_Left_in" type="revolute">
+    <origin xyz="-0.0064872 0.064675 0" rpy="0 0 0" />
+    <parent link="ctag_L2_Link" />
+    <child link="ctag_Left_in_Link" />
+    <axis xyz="0 0 1" />
+    <limit lower="0.0" upper="0.7" effort="0" velocity="0" />
+    <mimic joint="ctag_L2" multiplier="1" offset="0" />
+  </joint>
+  <joint name="ctag_Left_Pad" type="fixed">
+    <origin xyz="-0.024321 0.03825 0" rpy="0 0 0" />
+    <parent link="ctag_Left_in_Link" />
+    <child link="ctag_Left_Pad_Link" />
+    <axis xyz="0 0 0" />
+  </joint>
+  <joint name="ctag_L3" type="revolute">
+    <origin xyz="-0.014488 0 0.16424" rpy="1.5708 0 -3.1416" />
+    <parent link="ctag_base_link" />
+    <child link="ctag_L3_Link" />
+    <axis xyz="0 0 1" />
+    <limit lower="-0.7" upper="0.0" effort="0" velocity="0" />
+    <mimic joint="ctag_R3" multiplier="-1" offset="0" />
+  </joint>
+  <joint name="ctag_Left_Main" type="revolute">
+    <origin xyz="-0.014488 0 0.16424" rpy="1.5708 0 -3.1416" />
+    <parent link="ctag_base_link" />
+    <child link="ctag_Left_Main_Link" />
+    <axis xyz="0 0 1" />
+    <limit lower="-0.7" upper="0.0" effort="0" velocity="0" />
+    <mimic joint="ctag_Right_Main" multiplier="-1" offset="0" />
+  </joint>
+  <joint name="ctag_L1" type="revolute">
+    <origin xyz="0.039848 -0.0034894 0" rpy="0 0 0" />
+    <parent link="ctag_Left_Main_Link" />
+    <child link="ctag_L1_Link" />
+    <axis xyz="0 0 1" />
+    <limit lower="-0.105" upper="0.0" effort="0" velocity="0" />
+    <mimic joint="ctag_R1" multiplier="1" offset="0" />
+  </joint>
+  <joint name="ctag_Left_Slip" type="revolute">
+    <origin xyz="0.039848 -0.0034894 0" rpy="0 0 0" />
+    <parent link="ctag_Left_Main_Link" />
+    <child link="ctag_Left_Slip_Link" />
+    <axis xyz="0 0 1" />
+    <limit lower="0.0" upper="0.7" effort="0" velocity="0" />
+    <mimic joint="ctag_L2" multiplier="1" offset="0" />
+  </joint>
+<link name="ctag_base_link">
+    <inertial>
+      <origin xyz="3.60790901430323E-07 -5.64320645350742E-06 0.0706726714806953" rpy="0 0 0" />
+      <mass value="0.550602760471901" />
+      <inertia ixx="0.00142017584507119" ixy="3.08098146076886E-08" ixz="-5.73433229424981E-10" iyy="0.00143857361219326" iyz="-4.68447322183702E-08" izz="0.000380243423733305" />
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="/home/jy/datasets/vla_data/L1_制作资产/载体设备/changingtek/crt_ctag2f120_gripper_visualization/meshes/base_link.STL" />
+      </geometry>
+      <material name="">
+        <color rgba="1 1 1 1" />
+      </material>
+    </visual>
+    </link>
+    <link name="ctag_R2_Link">
+    <inertial>
+      <origin xyz="-0.00307534282071652 0.0306564133124412 7.14174657879278E-14" rpy="0 0 0" />
+      <mass value="0.0103929935266039" />
+      <inertia ixx="8.49390755914334E-06" ixy="4.90641790340941E-07" ixz="5.86605656108451E-22" iyy="3.65218690931793E-06" iyz="6.42852492771497E-22" izz="5.18210347868652E-06" />
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="/home/jy/datasets/vla_data/L1_制作资产/载体设备/changingtek/crt_ctag2f120_gripper_visualization/meshes/R2_Link.STL" />
+      </geometry>
+      <material name="">
+        <color rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+      </material>
+    </visual>
+    </link>
+  <link name="ctag_Right_in_Link">
+    <inertial>
+      <origin xyz="-0.01353866342122 0.0217978676545458 8.23589797046891E-10" rpy="0 0 0" />
+      <mass value="0.0148304041156915" />
+      <inertia ixx="5.03355963171223E-06" ixy="1.41306394406675E-06" ixz="1.03725990405709E-14" iyy="1.36223938670171E-06" iyz="-1.03191172758403E-13" izz="5.38450977847141E-06" />
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="/home/jy/datasets/vla_data/L1_制作资产/载体设备/changingtek/crt_ctag2f120_gripper_visualization/meshes/Right_in_Link.STL" />
+      </geometry>
+      <material name="">
+        <color rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+      </material>
+    </visual>
+    </link>
+  <link name="ctag_Right_Pad_Link">
+    <inertial>
+      <origin xyz="-3.2660014016167E-12 0.00209017759237007 7.11467394982792E-14" rpy="0 0 0" />
+      <mass value="0.00221607596633023" />
+      <inertia ixx="3.72447507805222E-07" ixy="-1.4440089389694E-21" ixz="2.86865273561824E-22" iyy="9.60147251354242E-08" iyz="3.94346085652842E-22" izz="2.77910166647352E-07" />
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="/home/jy/datasets/vla_data/L1_制作资产/载体设备/changingtek/crt_ctag2f120_gripper_visualization/meshes/Right_Pad_Link.STL" />
+      </geometry>
+      <material name="">
+        <color rgba="0.384313725490196 0.384313725490196 0.384313725490196 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="/home/jy/datasets/vla_data/L1_制作资产/载体设备/changingtek/crt_ctag2f120_gripper_visualization/meshes/Right_Pad_Link.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <link name="ctag_R3_Link">
+    <inertial>
+      <origin xyz="-0.00309014684107268 0.0310140569467607 7.12318251109555E-14" rpy="0 0 0" />
+      <mass value="0.0174171623188833" />
+      <inertia ixx="4.92759040651407E-06" ixy="1.97343592159646E-07" ixz="1.41452134790062E-22" iyy="2.89352854551975E-06" iyz="-4.79201919261344E-22" izz="2.46748088438256E-06" />
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="/home/jy/datasets/vla_data/L1_制作资产/载体设备/changingtek/crt_ctag2f120_gripper_visualization/meshes/R3_Link.STL" />
+      </geometry>
+      <material name="">
+        <color rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+      </material>
+    </visual>
+    </link>
+  <link name="ctag_Right_Main_Link">
+    <inertial>
+      <origin xyz="0.019922857746903 -0.00174624583643407 7.19764586462086E-14" rpy="0 0 0" />
+      <mass value="0.00767248607311942" />
+      <inertia ixx="1.61905064419592E-07" ixy="1.41186473929966E-07" ixz="1.16074029320803E-07" iyy="1.76183954189053E-06" iyz="-1.01644257475684E-08" izz="1.8078877181843E-06" />
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="/home/jy/datasets/vla_data/L1_制作资产/载体设备/changingtek/crt_ctag2f120_gripper_visualization/meshes/Right_Main_Link.STL" />
+      </geometry>
+      <material name="">
+        <color rgba="1 1 1 1" />
+      </material>
+    </visual>
+    </link>
+  <link name="ctag_R1_Link">
+    <inertial>
+      <origin xyz="-0.0145073789754339 0.0290823994005286 7.12300556440619E-14" rpy="0 0 0" />
+      <mass value="0.00985263959018644" />
+      <inertia ixx="3.66964315008607E-06" ixy="1.75717427840684E-06" ixz="-3.14194591860258E-23" iyy="1.02364534605578E-06" iyz="9.58532942161711E-23" izz="4.6399483772557E-06" />
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="/home/jy/datasets/vla_data/L1_制作资产/载体设备/changingtek/crt_ctag2f120_gripper_visualization/meshes/R1_Link.STL" />
+      </geometry>
+      <material name="">
+        <color rgba="1 1 1 1" />
+      </material>
+    </visual>
+    </link>
+  <link name="ctag_Right_Slip_Link">
+    <inertial>
+      <origin xyz="-0.0101161357334184 -0.0153030076024619 7.14021278320572E-14" rpy="0 0 0" />
+      <mass value="0.0104817171858542" />
+      <inertia ixx="1.70868067057352E-06" ixy="-9.02640123358804E-07" ixz="-2.69730779157751E-21" iyy="1.65153314998731E-06" iyz="-3.33898323115271E-21" izz="2.44312625018602E-06" />
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="/home/jy/datasets/vla_data/L1_制作资产/载体设备/changingtek/crt_ctag2f120_gripper_visualization/meshes/Right_Slip_Link.STL" />
+      </geometry>
+      <material name="">
+        <color rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+      </material>
+    </visual>
+    </link>
+  <link name="ctag_L2_Link">
+    <inertial>
+      <origin xyz="-0.003074982647498 0.0306564239589311 -2.62500719653024E-15" rpy="0 0 0" />
+      <mass value="0.0103929935266039" />
+      <inertia ixx="8.4939190062867E-06" ixy="4.90585305963773E-07" ixz="3.85686488037559E-22" iyy="3.65217546217458E-06" iyz="1.11215058290318E-21" izz="5.18210347868653E-06" />
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="/home/jy/datasets/vla_data/L1_制作资产/载体设备/changingtek/crt_ctag2f120_gripper_visualization/meshes/L2_Link.STL" />
+      </geometry>
+      <material name="">
+        <color rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+      </material>
+    </visual>
+    </link>
+  <link name="ctag_Left_in_Link">
+    <inertial>
+      <origin xyz="-0.0135386634172176 0.0217978676711873 8.23798541583149E-10" rpy="0 0 0" />
+      <mass value="0.0148304041156915" />
+      <inertia ixx="5.03355963171223E-06" ixy="1.41306394406675E-06" ixz="1.03726006011721E-14" iyy="1.36223938670171E-06" iyz="-1.03191178488474E-13" izz="5.38450977847141E-06" />
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="/home/jy/datasets/vla_data/L1_制作资产/载体设备/changingtek/crt_ctag2f120_gripper_visualization/meshes/Left_in_Link.STL" />
+      </geometry>
+      <material name="">
+        <color rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+      </material>
+    </visual>
+    </link>
+  <link name="ctag_Left_Pad_Link">
+    <inertial>
+      <origin xyz="1.39411637616049E-12 0.00209017759146468 1.28343121452714E-13" rpy="0 0 0" />
+      <mass value="0.00221607596633023" />
+      <inertia ixx="3.72447507805222E-07" ixy="-1.42598052017838E-21" ixz="2.85390625390961E-22" iyy="9.6014725135424E-08" iyz="4.09611600650029E-22" izz="2.77910166647351E-07" />
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="/home/jy/datasets/vla_data/L1_制作资产/载体设备/changingtek/crt_ctag2f120_gripper_visualization/meshes/Left_Pad_Link.STL" />
+      </geometry>
+      <material name="">
+        <color rgba="0.384313725490196 0.384313725490196 0.384313725490196 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="/home/jy/datasets/vla_data/L1_制作资产/载体设备/changingtek/crt_ctag2f120_gripper_visualization/meshes/Left_Pad_Link.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <link name="ctag_L3_Link">
+    <inertial>
+      <origin xyz="-0.00308938473733376 0.031014056946804 -1.10668984574934E-15" rpy="0 0 0" />
+      <mass value="0.0174171623188832" />
+      <inertia ixx="4.92759040651406E-06" ixy="1.97343592159646E-07" ixz="9.8958131249605E-23" iyy="2.89352854551974E-06" iyz="-6.32506296879156E-22" izz="2.46748088438256E-06" />
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="/home/jy/datasets/vla_data/L1_制作资产/载体设备/changingtek/crt_ctag2f120_gripper_visualization/meshes/L3_Link.STL" />
+      </geometry>
+      <material name="">
+        <color rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+      </material>
+    </visual>
+    </link>
+  <link name="ctag_Left_Main_Link">
+    <inertial>
+      <origin xyz="0.0199236198490203 -0.0017462458370337 3.35612229870905E-17" rpy="0 0 0" />
+      <mass value="0.00767248607311942" />
+      <inertia ixx="1.61905064419593E-07" ixy="1.41186473929966E-07" ixz="1.16074029320803E-07" iyy="1.76183954189053E-06" iyz="-1.01644257475684E-08" izz="1.8078877181843E-06" />
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="/home/jy/datasets/vla_data/L1_制作资产/载体设备/changingtek/crt_ctag2f120_gripper_visualization/meshes/Left_Main_Link.STL" />
+      </geometry>
+      <material name="">
+        <color rgba="1 1 1 1" />
+      </material>
+    </visual>
+    </link>
+  <link name="ctag_L1_Link">
+    <inertial>
+      <origin xyz="-0.0145073789806201 0.0290823993984715 9.18161249467235E-16" rpy="0 0 0" />
+      <mass value="0.00985263959018644" />
+      <inertia ixx="3.66964315008607E-06" ixy="1.75717427840684E-06" ixz="-3.23368457479221E-23" iyy="1.02364534605578E-06" iyz="9.20158722921844E-23" izz="4.6399483772557E-06" />
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="/home/jy/datasets/vla_data/L1_制作资产/载体设备/changingtek/crt_ctag2f120_gripper_visualization/meshes/L1_Link.STL" />
+      </geometry>
+      <material name="">
+        <color rgba="1 1 1 1" />
+      </material>
+    </visual>
+    </link>
+  <link name="ctag_Left_Slip_Link">
+    <inertial>
+      <origin xyz="-0.0101161357570116 -0.0153030076118182 1.9668117698532E-13" rpy="0 0 0" />
+      <mass value="0.0104817171858542" />
+      <inertia ixx="1.70868067057352E-06" ixy="-9.02640123358802E-07" ixz="-2.83098552056847E-21" iyy="1.65153314998731E-06" iyz="-3.48452007732097E-21" izz="2.44312625018602E-06" />
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="/home/jy/datasets/vla_data/L1_制作资产/载体设备/changingtek/crt_ctag2f120_gripper_visualization/meshes/Left_Slip_Link.STL" />
+      </geometry>
+      <material name="">
+        <color rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+      </material>
+    </visual>
+    </link>
+  <joint name="link_6_to_ctag_joint" type="fixed"><parent link="link_6" /><child link="ctag_base_link" /><origin xyz="0 0 0" rpy="0 0 1.5708" /></joint></robot>

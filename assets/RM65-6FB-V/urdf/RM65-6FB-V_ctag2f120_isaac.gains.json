@@ -1,0 +1,92 @@
+{
+  "_comment": "官方 RM65-6FB-V + 原厂 CT 夹爪的关节增益。值 = USD 级(物理表现 ≈ ×57.3, 见 robot_manager._bake_joint_gains)。臂段 6 个关节的值抄自 humanoid_upper_body_v3_ctag2f120_rm65_isaac.gains.json(那边已调好)。官方 RM65 URDF 完全没有 <dynamics>, 不烘增益则 damping=0, 臂会持续摆动。夹爪 12 个关节用 5000/50 —— 理由见下面 _comment_gripper。",
+  "joint_1": {
+    "stiffness": 1309.2,
+    "damping": 9.5603
+  },
+  "joint_2": {
+    "stiffness": 1139.1,
+    "damping": 8.91763
+  },
+  "joint_3": {
+    "stiffness": 610.5,
+    "damping": 6.52847
+  },
+  "joint_4": {
+    "stiffness": 502.8,
+    "damping": 5.9247
+  },
+  "joint_5": {
+    "stiffness": 244.4,
+    "damping": 4.13066
+  },
+  "joint_6": {
+    "stiffness": 193.1,
+    "damping": 3.67164
+  },
+  "camera_rojoint": {
+    "stiffness": 50.0,
+    "damping": 1.86833
+  },
+  "_comment_gripper": "CT 夹爪 12 个可动件。主动关节 ctag_R2, 其余 11 个由 _apply_software_mimic 每帧跟随。**刚度必须是 5000 而不是 100**: 导入器把驱动写成 acceleration 型(drive:angular:physics:type=acceleration), 刚度按惯量折算 —— 指节惯量只有 0.0002 kg·m², k=100 折出来等效刚度才 1.2 N·m/rad, 0.09 N·m 的重力负载就能把跟随关节压偏 0.0755 rad, 左右指连杆因此互相插进去(实测 Right_in↔Left_Pad 29 个顶点)。k=5000 时残差 0.0008 rad、速度 0 不振铃。臂的关节用 100 没问题是因为它惯量大 800 倍。2026-10-12 实测。",
+  "ctag_R2": {
+    "stiffness": 5000.0,
+    "damping": 50.0,
+    "friction": 0.05
+  },
+  "ctag_Right_in": {
+    "stiffness": 5000.0,
+    "damping": 50.0,
+    "friction": 0.05
+  },
+  "ctag_R3": {
+    "stiffness": 5000.0,
+    "damping": 50.0,
+    "friction": 0.05
+  },
+  "ctag_Right_Main": {
+    "stiffness": 5000.0,
+    "damping": 50.0,
+    "friction": 0.05
+  },
+  "ctag_R1": {
+    "stiffness": 5000.0,
+    "damping": 50.0,
+    "friction": 0.05
+  },
+  "ctag_Right_Slip": {
+    "stiffness": 5000.0,
+    "damping": 50.0,
+    "friction": 0.05
+  },
+  "ctag_L2": {
+    "stiffness": 5000.0,
+    "damping": 50.0,
+    "friction": 0.05
+  },
+  "ctag_Left_in": {
+    "stiffness": 5000.0,
+    "damping": 50.0,
+    "friction": 0.05
+  },
+  "ctag_L3": {
+    "stiffness": 5000.0,
+    "damping": 50.0,
+    "friction": 0.05
+  },
+  "ctag_Left_Main": {
+    "stiffness": 5000.0,
+    "damping": 50.0,
+    "friction": 0.05
+  },
+  "ctag_L1": {
+    "stiffness": 5000.0,
+    "damping": 50.0,
+    "friction": 0.05
+  },
+  "ctag_Left_Slip": {
+    "stiffness": 5000.0,
+    "damping": 50.0,
+    "friction": 0.05
+  }
+}
