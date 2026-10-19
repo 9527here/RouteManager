@@ -19,15 +19,29 @@ env/
 *.swp
 .DS_Store
 
-# ---- Claude Code 个人设置（共享设置走 .claude/settings.json）----
+# ---- agent 工具的个人设置（共享设置走 .claude/settings.json）----
 .claude/settings.local.json
+.commandcode/
 
 # ---- 运行时产物 ----
 *.log
 *.tmp
 .pid
+
 # ---- 大型生成资产（URDF 导入产物 / 超大网格），不入库，本地保留 ----
+# 导入产物可由 load_urdf / 各 build_*.py 重新生成，不值得进 git 历史
 humanoid_upper_body_v3/usd/
 humanoid_upper_body_v3/urdf/*/configuration/
 humanoid_upper_body_v3/meshes/visual/base_link.STL
+assets/**/*_isaac.usd
+assets/**/*_isaac/
 assets/RM65-6FB-V/urdf/configuration/
+
+# ---- assets/ 下的截图、参考图、原始压缩包、构建产物，不入库 ----
+# assets/ 只放源码级资产（urdf / stl / 配置）；看图和交付包留在本地
+assets/**/*.png
+assets/**/*.jpg
+assets/**/*.jpeg
+assets/*.zip
+assets/arm66/
+assets/deliver/
