@@ -1,0 +1,11 @@
+[project]
+name = "valve-rl"
+version = "0.1.0"
+description = "Valve handwheel turning RL task for the RouteManager humanoid"
+requires-python = ">=3.12"
+
+[project.entry-points."isaaclab.tasks"]
+valve_rl = "valve_rl.tasks"
+
+[tool.setuptools.packages.find]
+include = ["valve_rl*"]
