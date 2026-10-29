@@ -70,9 +70,12 @@ Pico VR 遥操作。**设计目标：同一套控制代码在仿真与真机之�
 
 ### 5. Python 版本是分裂的
 
-isaacsim5.1 是 **python3.11**，ROS Humble 的 `rclpy` 是 **python3.10**，两者不能互相 import。
-所以**仿真进程内跑不了 rclpy**，ROS2 一律走中继脚本 `scripts/ros2_relay.py`（用系统
-python3.10 跑）。`run.sh` 会 source ROS2 环境，但对仿真进程无实际作用，别被误导。
+默认环境 isaacsim6.0（= Isaac Sim **6.2**）是 **python3.12**，ROS Humble 的 `rclpy` 是
+**python3.10**，两者不能互相 import。所以**仿真进程内跑不了 rclpy**，ROS2 一律走中继
+脚本（用系统 python3.10 跑）：**`scripts/ros2_sim_contract.py`** —— 现在发的是
+`/<robot>/sim/<instance>/...` 契约（见 `docs/ROS2接口_iasscsim_robot.md`）。
+旧的 `scripts/ros2_relay.py` 已废弃（`start_ros_relay.sh` 转发到新脚本）。`run.sh` 会 source ROS2 环境，
+但对仿真进程无实际作用，别被误导。
 
 ## 环境与命令
 
@@ -91,7 +94,13 @@ curl http://127.0.0.1:18765/health  # {"status":"IDLE"} = 就绪
 pkill -f "[r]outeManager.*main.py"  # 方括号防止 pkill 杀掉自己
 ```
 
-- 环境是 micromamba 的 **`isaacsim5.1`**（机器上另有 `isaacsim6.0`，**不要混用**）。
+- **默认环境是 micromamba 的 `isaacsim6.0`** —— 目录名有误导性，这个 env 已于
+  2026-10-20 就地升级到 **Isaac Sim 6.2.0.0**（python3.12）。`run.sh` 现在默认走它，
+  `ISAAC_PYTHON` 可覆盖。
+- `isaacsim5.1` **已不可用**：那次升级把它的 Kit 扩展缓存
+  （`omni.isaac.ml_archive` 的 `pip_prebundle/torch`）覆盖成了 **py312** 的 C 扩展，
+  而 5.1 是 py311 → `import torch` 失败 → `isaacsim.core.*` 全部加载不了，服务
+  12 秒即退。要用 5.1 得先把那份 prebundle 换回 py311 版本。
 - 端口 **18765**，`ROUTE_MANAGER_PORT` 可覆盖。
 - **首次启动加载 Isaac 要 1~3 分钟**，热缓存约 8s。别以为卡死了就去杀进程。
 - 改完代码验证不需要重启：`POST /python` 热替换 `RobotManager`（见踩坑清单）。
@@ -138,7 +147,8 @@ run.sh / load_scene.sh / bringup.sh    启动与一键搭场景
 pick_object.py          离线抓取（HTTP 驱动，不依赖 VR）
 task_sequence.py        完整演示：走位 → 开回桌前 → 抓取
 wasd_teleop.py          终端 WASD 遥控底盘
-ros2_relay.py           ROS2 ↔ HTTP 中继（系统 python3.10 跑）
+ros2_sim_contract.py    ROS2 契约中继（系统 python3.10 跑）
+ros2_bridge/contract_graph.py  相机 OmniGraph 构建（顶层不 import omni）
 rm_driver_bridge.py     真机 rm_driver CANFD 桥
 scene/                  场景构建/烘焙/相机注册等一次性脚本
 ```
@@ -168,6 +178,31 @@ scene/                  场景构建/烘焙/相机注册等一次性脚本
 `*/urdf/*/configuration/`、`meshes/visual/base_link.STL`）。clone 后这些不存在，
 需要按 README 的 URDF 导入流程在本地重新生成。
 
+### Isaac Sim 版本差异（5.1 ↔ 6.2，`robot_manager.py` 两者都适配了）
+
+**URDF 导入器是两套完全不同的 API**（`_import_urdf_to_usd` 按版本自动分派）：
+
+| | 5.1 | 6.2 |
+|---|---|---|
+| 入口 | `from ... import _urdf` | `from ... import URDFImporter, URDFImporterConfig` |
+| 流程 | `parse_urdf` + `import_robot` 两步 | `URDFImporter().import_urdf(cfg)` 一步 |
+| 产物 | 单个 `.usd` 文件 | **分层目录**：`<dir>/<stem>/<stem>.usda` + `payloads/` |
+| defaultPrim | 不带，要自己补写 | 带 |
+| 变体 | 无 | 顶层带 `Physics` 变体集（none/physics/physx/mujoco），**必须选 `physx`** |
+| mimic | `parse_mimic=False` 关掉 | **没有这个开关**，导入后剥 `NewtonMimicAPI` |
+| `dest_path` | 文件路径 | **目录**；且不会覆盖，每次建 `<stem>_N`（每个 53 MB） |
+
+- **mimic 必须关/剥**：本项目夹爪靠 `_apply_software_mimic` 每帧给跟随关节写位置目标。
+  原生约束同时生效会互相顶 —— 6.2 上实测夹爪跑到 63 rad、PhysX 刷 Invalid transform、
+  整个仿真发散成 NaN。5.1 用 `parse_mimic=False`，6.2 事后 `RemoveAPI("NewtonMimicAPI")`。
+- **关节限位在 USD 里存的是「度」**（`physics:lowerLimit = 40.107` 对应 0.7 rad），
+  这是 UsdPhysics 的约定；Isaac 建 articulation 时会转成弧度，运行时读到的仍是弧度。
+  别拿 USD 层的数当弧度用。
+- `GroundPlane.set_world_pose()` **在 6.2 上不生效**（设 6.222 读回 0）→ 直接写
+  `xformOp:translate`（见 `_set_prim_translate_z`）。
+- 同一会话**不能二次加载机器人**：6.2 抛 `scene ... name is not unique`，5.1 直接
+  abort 把进程带死。`_reject_if_robot_loaded` 提前拦成一句人话。
+
 ### Isaac Sim 5.1 API（`robot_manager.py` 已适配，别改回去）
 
 - `isaacsim.core.prims.Articulation` 第一参改名为 `prim_paths_expr` → 用**位置传参**兼容新旧。
@@ -187,6 +222,10 @@ scene/                  场景构建/烘焙/相机注册等一次性脚本
 
 - Isaac 的 URDF 导入器**不解析 `package://` 形式的 mesh 引用**。手头只有这种 URDF 时，
   要么批量改写成绝对路径，要么直接用转换好的 USD 走 `load_robot`。
+- **静态相机默认不注册**（`config.json` → `cameras.auto_register: false`，2026-10-21
+  用户要求"以后都不要加载相机"）。每路相机都要建 render product，`initialize()` 那几路
+  实打实吃 GPU，而背景 NuRec 场景本来就把 GPU 打满。要出图时打开这个开关，或用
+  `add_camera` 临时加一路。别在调试脚本里随手加探针相机。
 - `add_camera` 的 `name` 默认取 `prim_path` 末段 → 多个相机都叫 `camera` 会撞场景注册表，
   多相机场景**显式传 `name`**。
 - `attach_to` 要求 link prim 存在，所以 URDF 导入要保持 `merge_fixed_joints: false`。

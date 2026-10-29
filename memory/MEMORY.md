@@ -22,4 +22,11 @@
 - [颈部/相机转台阻尼](neck-camera-damping.md) — 烘出来的 damping 只有 0.02(几乎自由关节)，手臂一动头就点头 3.5°；`_tune_neck_drives` 按 ζ=1.5 补
 - [静止待机抖动](idle-jitter-wake-lock.md) — 根因是 `set_base_velocity` 一旦调用过就永久每帧写轮子目标、把整机锁在唤醒态；PhysX 睡着=完全静止、醒着=0.3~4mrad 宽带微振；修完静止抖动 0.979→0.000。附官方 Gripper Tuning 方法与被排除的做法
 - [人形 URDF 对外交付包](humanoid-urdf-delivery.md) — assets/deliver/ 的包结构约定；源用 rm65_isaac 那份；visual 精简/collision 原样；open3d 精简后必须先算面法线否则写盘静默失败
+- [VR 遥操作接入 XRoboToolkit](vr-teleop-xrobotoolkit-bridge.md) — 进程外 UDP 通路（placo IK + xrobotoolkit_sdk），与进程内 CloudXR 那套互斥；必须 setsid 起服务（SIGHUP 会带走）；PC Service 只推一个客户端；errno=28 是 inotify 不是磁盘
+- [ROS2 sim 契约](ros2-sim-contract.md) — `/<robot>/sim/...` 手臂+相机话题；**运行期停用任何 prim 会让 articulation 物理视图失效**；`body_names` 不是 `link_names`；控制话题不能自发布（自环占满队列）；中继要按占空比让出 HTTP 队列
+- [ROS2 契约改进程内](ros2-inprocess-contract.md) — Isaac 6.2 自带 py312 rclpy（`isaacsim.ros2.core/humble/rclpy`，消息包也在那），**不需要 py3.10 中继**；sys.path 插路径前要先清 sys.modules 里的坏 rclpy；回调跑在主线程可直接写 articulation；实测 40Hz（旧中继 5~8Hz）；**`LD_LIBRARY_PATH` 必须让 ext 的 lib 排在 `/opt/ros/humble/lib` 前面，否则 `create_node()` SIGABRT**
+- [Isaac GUI 中文字形](kit-ui-text-gone-cjk.md) — `font.customFontPath` 是**整体替换**不是补缺字，字体必须**同时含拉丁**且是 **TrueType 轮廓**；DroidSansFallback 无拉丁 → 全界面空白（零报错）；Noto CJK 是 CFF 用不了；可用方案 NotoSansSC 实例化 wght=500 + region 每行 192 字 + `overresolutionSize=66`
+- [迁移到 Isaac Sim 6.2](isaac62-migration.md) — 5.1 被 10-20 的升级覆盖成 py312 torch prebundle 而报废；URDF 导入器两套 API；**mimic 必须剥 NewtonMimicAPI 否则夹爪把仿真带崩**；GroundPlane.set_world_pose 不生效；USD 限位存的是度
+- [背景场景渲染开销](backdrop-scene-render-cost.md) — NuRec 扫描吃满 GPU：可见 15~17fps / 隐藏 42~45fps；分辨率/采样/反射/render_interval **全无效**；crop 运行时改不了（插件换成代理 prim）；唯一对策 `set_scene_visible`；加载后头一分钟只有半速
+- [ROS humble 污染 py3.12 运行时](ros-env-python-pollution.md) — pink 扩展报 pinocchio 找不到子模块的真因；PYTHONPATH+LD_LIBRARY_PATH 两层，**/opt/ros/humble/lib 不能动**
 - [STEP→USD HOOPS 导入验收](step-hoops-import.md) — headless 调 hoops_core 转 STEP；原型实例化导致 Traverse 数不到 Mesh；mm 双层 wrapper + 180° 翻转落地；pxr 先开 stage 会搞崩 World；Gf Matrix3d.SetRow 按列存坑；6 开口曲面=相机/电机外购件
