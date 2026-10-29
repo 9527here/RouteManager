@@ -37,16 +37,16 @@ echo "▶ 使用 display: $DISP"
 # ---- 1. 重启服务(teleop 环境,isaacteleop 只装在这里) ----
 # 先停旧 relay: 它会在服务重启瞬间恢复高频轮询, 与 bringup 自己的请求
 # 抢单任务队列, 导致 load_scene/load_robot 失败(2026-09-28 实测)。
-[ -f scripts/start_ros_relay.sh ] && ./scripts/start_ros_relay.sh stop >/dev/null 2>&1
+[ -f scripts/start_ros2_contract.sh ] && ./scripts/start_ros2_contract.sh stop >/dev/null 2>&1
 pkill -f "[m]ain.py" 2>/dev/null || true
 sleep 3
 if [ "${HEADLESS:-0}" = "1" ]; then
     # headless 模式: 不开窗口, 不占 DISPLAY(用户要用机器跑别的时用)
     echo "▶ HEADLESS 模式"
-    HEADLESS=1 ISAAC_PYTHON="micromamba run -n isaacsim5.1_teleop python" \
+    HEADLESS=1 ISAAC_PYTHON="micromamba run -n isaacsim6.0 python" \
         nohup ./scripts/run.sh > /tmp/rm_server.log 2>&1 &
 else
-    ISAAC_PYTHON="micromamba run -n isaacsim5.1_teleop python" DISPLAY="$DISP" \
+    ISAAC_PYTHON="micromamba run -n isaacsim6.0 python" DISPLAY="$DISP" \
         nohup ./scripts/run.sh > /tmp/rm_server.log 2>&1 &
 fi
 for i in $(seq 1 50); do health && break; sleep 2; done
@@ -95,8 +95,8 @@ if [ "$START_VR" = "1" ]; then
 fi
 
 # ---- 7. ROS 中继(默认启动; START_ROS=0 可跳过) ----
-if [ -f scripts/start_ros_relay.sh ] && [ "${START_ROS:-1}" = "1" ]; then
-    ./scripts/start_ros_relay.sh
+if [ -f scripts/start_ros2_contract.sh ] && [ "${START_ROS:-1}" = "1" ]; then
+    ./scripts/start_ros2_contract.sh
 fi
 
 echo "════════ 启动完成 ════════"
