@@ -29,3 +29,4 @@
 - [背景场景渲染开销](backdrop-scene-render-cost.md) — NuRec 扫描吃满 GPU：可见 15~17fps / 隐藏 42~45fps；分辨率/采样/反射/render_interval **全无效**；crop 运行时改不了（插件换成代理 prim）；唯一对策 `set_scene_visible`；加载后头一分钟只有半速
 - [ROS humble 污染 py3.12 运行时](ros-env-python-pollution.md) — pink 扩展报 pinocchio 找不到子模块的真因；PYTHONPATH+LD_LIBRARY_PATH 两层，**/opt/ros/humble/lib 不能动**
 - [STEP→USD HOOPS 导入验收](step-hoops-import.md) — headless 调 hoops_core 转 STEP；原型实例化导致 Traverse 数不到 Mesh；mm 双层 wrapper + 180° 翻转落地；pxr 先开 stage 会搞崩 World；Gf Matrix3d.SetRow 按列存坑；6 开口曲面=相机/电机外购件
+- [Isaac Lab 阀门 RL 四条结论](isaaclab-valve-rl-findings.md) — **RL 对采数据不划算**（两版都卡在平台期，只会悬停 0.22m）；actuator 增益必须读 gains.json（lift 标定 182356，写零刚度整机塌陷）；夹爪 12 关节 mimic 链 ±1/-0.15；训练必调 handle_deprecated_rsl_rl_cfg 且导入必须在 launch_simulation 之后；**PhysX 雅可比是连杆质心的不是 TCP 的**，拿它做 IK 会越走越远
