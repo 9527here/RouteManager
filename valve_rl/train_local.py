@@ -61,7 +61,8 @@ def main():
 
         run_name = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         log_dir = os.path.join(
-            "/home/jy/valve_rl/logs/rsl_rl", agent_cfg.experiment_name, run_name
+            os.path.dirname(os.path.abspath(__file__)), "logs", "rsl_rl",
+            agent_cfg.experiment_name, run_name
         )
         os.makedirs(log_dir, exist_ok=True)
         env_cfg.log_dir = log_dir

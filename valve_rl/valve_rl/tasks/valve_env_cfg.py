@@ -10,6 +10,7 @@
   * 只驱动**右臂 6 个关节**，其余关节给极小增益当被动件。
   * 阀门的 wheel_joint 无驱动（自由旋转），奖励按"每步转过的角度"给稠密信号。
 """
+import os
 from dataclasses import MISSING
 
 from isaaclab_physx.physics import PhysxCfg
@@ -33,7 +34,9 @@ from isaaclab.envs import mdp as base_mdp
 
 from . import mdp
 
-ASSETS = "/home/jy/datasets/vla_data/L2_仿真运行"
+# 资产根目录：默认指向 RouteManager 资产整理后的位置，可用环境变量覆盖。
+# 这两个 USD 不在本仓库内，获取方式见 valve_rl/README.md。
+ASSETS = os.environ.get("VALVE_ASSETS_ROOT", "/home/jy/datasets/vla_data/L2_仿真运行")
 ROBOT_USD = f"{ASSETS}/机器人/humanoid_upper_body_v3_ctag2f120_rm65/humanoid_upper_body_v3_ctag2f120_rm65.usda"
 VALVE_USD = f"{ASSETS}/场景/操作台_piper_table_v2/asserts/valve/valve_1/valve_asset.usd"
 
@@ -59,10 +62,11 @@ ROBOT_JOINTS = frozenset(
 )
 
 #: 项目给这个机器人烘好的按关节增益（stiffness/damping，USD 级数值）
-GAINS_JSON = (
-    "/home/jy/datasets/vla_data/L1_制作资产/载体设备/humanbody_urdf/"
-    "humanoid_upper_body_v3/urdf/humanoid_upper_body_v3_ctag2f120_rm65_isaac.gains.json"
+GAINS_ROOT = os.environ.get(
+    "VALVE_GAINS_ROOT",
+    "/home/jy/datasets/vla_data/L1_制作资产/载体设备/humanbody_urdf",
 )
+GAINS_JSON = f"{GAINS_ROOT}/humanoid_upper_body_v3/urdf/humanoid_upper_body_v3_ctag2f120_rm65_isaac.gains.json"
 
 
 def _build_actuators() -> dict:

@@ -16,9 +16,7 @@ from isaaclab.actuators import ImplicitActuatorCfg
 from isaaclab.physics import PhysicsCfg
 from isaaclab.sim import SimulationCfg, SimulationContext
 
-ROBOT = ("/home/jy/datasets/vla_data/L2_仿真运行/机器人/"
-         "humanoid_upper_body_v3_ctag2f120_rm65/"
-         "humanoid_upper_body_v3_ctag2f120_rm65.usda")
+from valve_rl.tasks.valve_env_cfg import ROBOT_USD as ROBOT
 
 
 def main():

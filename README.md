@@ -325,3 +325,9 @@ RouteManager/
 ## License
 
 MIT
+
+## 阀门拧动 RL（归档）
+
+`valve_rl/` 是 Isaac Lab 上的阀门拧动任务，**代码可用但任务未跑通**，作参考实现保留。
+踩坑结论见 `memory/isaaclab-valve-rl-findings.md`，依赖的外部资产与跑法见
+`valve_rl/README.md`。
