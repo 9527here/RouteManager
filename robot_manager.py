@@ -19,6 +19,8 @@ import numpy as np
 import arm_kin
 import grasp_planner
 import gripper_model
+import udp_teleop
+from ros2_bridge import contract_graph, contract_node
 from ros2_bridge.controller import Ros2JointController, lerp, smoothstep
 
 logger = logging.getLogger("route_manager.robot")
@@ -115,6 +117,29 @@ class RobotManager:
         self._wheel_pos_target = None  # 驱动轮积分位置目标（虚拟速度模式）
         self._base_cfg = self._config.get("base_teleop") or {}
 
+        #: 世界地面高度（米）。整套场景抬到扫描环境的可站地面上用：
+        #: 电力院那份 NuRec 扫描，其"能站的房间"在世界 z≈6.2 处（用户用
+        #: `/Xform` 标定）。这个值同时作用于 **地平面 / 机器人初始位姿 /
+        #: 自动抓取的桌前复位位姿**，三者必须一致，否则机器人会掉下去或
+        #: 复位到地面以下。场景本身（static_scene.usda 里 vla_table 的 z、
+        #: dianliyuan_scene 的 translate）由 add_dianliyuan_scene.py 烘焙。
+        self._base_z = float((self._config.get("world") or {}).get("base_z", 0.0))
+
+        # XRoboToolkit 遥操作端（placo IK，独立进程）→ UDP 关节目标入口。
+        # 见 udp_teleop.py；与进程内 VR 遥操作是**互斥的两条路**，由
+        # start_udp_teleop 启动，启动时挂起进程内 VR 对手臂/夹爪的写入。
+        self._udp_link = None
+        self._udp_cfg = self._config.get("udp_teleop") or {}
+
+        # 进程内 ROS2 契约节点（ros2_bridge/contract_node.py）。
+        # 用的是 Isaac 6.2 自带的 py3.12 rclpy —— 所以不需要像
+        # scripts/ros2_sim_contract.py 那样另起 py3.10 中继、也不再走 HTTP。
+        self._ros2_contract = None
+        self._ros2_contract_ref = "base_link"
+        self._ros2_contract_period = 1.0 / 50.0
+        self._last_ros2_publish = 0.0
+        self._udp_last_names = None    # 上一帧下发过的关节名（换关节集时全量重写）
+
         # ROS2 状态发布限频 + send_joint_command 的平滑插值状态机
         self._state_publish_period = 0.02   # 50Hz，setup_ros2_bridge 可改
         self._last_state_publish = 0.0
@@ -134,6 +159,12 @@ class RobotManager:
        显式传 True/False 时按调用方要求执行，供调试脚本和离线渲染使用。
         """
         self._process_ros_commands()
+        # XRoboToolkit 遥操作端（UDP）目标。放在 ROS 之后：两条路都在时 UDP 赢
+        # （VR 遥操作是实时的，ROS 指令是任务式的，让实时的覆盖更符合直觉）。
+        self._apply_udp_targets()
+        # 进程内 ROS2 契约：先 spin（处理 control/* 回调，回调直接写 articulation），
+        # 再推进插值 —— 顺序和 `_process_ros_commands` 一致。
+        self._service_ros2_contract()
         self._advance_motion()
         self._update_base_velocity()
         if self._vr_teleop is not None:
@@ -145,6 +176,9 @@ class RobotManager:
             except Exception as e:
                 logger.warning(f"X 键处理异常: {e!r}")
             self._vr_teleop.apply_pending()   # VR 手柄目标（主线程施加）
+        # XRoboToolkit 遥操作端（UDP）的按键事件：左手 X 键 → 自动抓取。
+        # 与上面进程内 VR 的 X 键同语义，两条路各自独立。
+        self._process_udp_events()
         self._auto_pick_step()
         # mimic 放在 VR 之后: 用**当帧**的主动关节指令算跟随关节, 零滞后。
         # (放在 VR 之前会晚一帧, 夹爪高速开合时能看到跟随指头慢半拍)
@@ -161,6 +195,8 @@ class RobotManager:
                 self._render_counter = 0
         self.world.step(render=should_render)
         self._publish_ros_state()
+        self._publish_udp_state()
+        self._publish_ros2_contract()
 
     def set_render_interval(self, interval: int):
         """运行时调整自动渲染频率；1 表示每个物理步都渲染。"""
@@ -175,8 +211,53 @@ class RobotManager:
             "env_override": "ROUTE_MANAGER_RENDER_INTERVAL",
         }
 
+    def _disable_cams_prim(self):
+        """把 `/World/cams` 整个停用（视口相机菜单里不再列出这 8 路）。
+
+        ⚠️ **必须在机器人加载之前做**。`isaacsim.core.prims.Articulation` 的
+        `_on_prim_deletion` 是**无条件** `del self._physics_view` 的（基类
+        `XFormPrim._on_prim_deletion` 虽然会按路径过滤，但派生类不看返回值）。
+        也就是说**任何 prim 被删/停用**都会把机器人的物理视图干掉，之后
+        `get_joint_positions` 之类的调用全部抛
+        `'Articulation' object has no attribute '_physics_view'`
+        （2026-10-22 实测：相机停用的那一刻机器人就不可控了）。
+
+        救急：`articulation._on_physics_ready(None)` 能把视图补回来。
+        """
+        if getattr(self, "articulation", None) is not None:
+            logger.warning(
+                "机器人已加载，跳过 /World/cams 停用 —— 运行时停用 prim 会触发 "
+                "PRIM_DELETION 让 articulation 的物理视图失效。"
+                "要关相机请在 load_scene 之前设 cameras.auto_register=false。")
+            return False
+        try:
+            import omni.usd
+            prim = omni.usd.get_context().get_stage().GetPrimAtPath(
+                "/World/cams")
+            if prim and prim.IsValid():
+                prim.SetActive(False)
+                logger.info("静态相机已停用（/World/cams inactive）")
+                return True
+        except Exception as e:
+            logger.warning(f"停用 /World/cams 失败: {e!r}")
+        return False
+
     def _register_static_cameras(self):
-        """把静态场景里已有的 Camera prim 包装成可读图传感器。"""
+        """把静态场景里已有的 Camera prim 包装成可读图传感器。
+
+        **默认不注册**（config.json `cameras.auto_register: false`）：每路相机都
+        要建 render product，`camera.initialize()` 那几路会实打实吃 GPU —— 在
+        NuRec 背景场景本来就把 GPU 打满的情况下很划算地不加载。
+
+        需要出图时把 `cameras.auto_register` 打开，或用 action `add_camera`
+        临时加一路（用完记得删）。
+        """
+        cfg = self._config.get("cameras") or {}
+        if not cfg.get("auto_register", False):
+            self._disable_cams_prim()
+            logger.info("静态相机自动注册已关闭（config cameras.auto_register）")
+            return
+
         import omni.usd
         from isaacsim.sensors.camera import Camera
 
@@ -208,6 +289,10 @@ class RobotManager:
         import omni.usd
         from pxr import Gf
 
+        # 相机没启用时整段跳过：/World/cams 已 inactive，算偏移既无意义
+        # 又会因为读 articulation._physics_view 刷警告。
+        if not (self._config.get("cameras") or {}).get("auto_register", False):
+            return
         offset_path = os.path.join(
             os.path.dirname(os.path.abspath(__file__)),
             "scripts", "scene", "cam_follow_offsets.json",
@@ -300,6 +385,9 @@ class RobotManager:
     def close(self):
         if self._ros_controller is not None:
             self._ros_controller.shutdown()
+        if self._ros2_contract is not None:
+            self._ros2_contract.shutdown()
+            self._ros2_contract = None
         self.world.stop()
         self.simulation_app.close()
 
@@ -317,7 +405,48 @@ class RobotManager:
         else:
             self._create_ground_plane()
             self._load_static_scene()
+            # 相机停用必须赶在机器人加载之前（见 _disable_cams_prim 的说明：
+            # 运行期停用 prim 会让 articulation 的物理视图失效）
+            if not (self._config.get("cameras") or {}).get("auto_register",
+                                                           False):
+                self._disable_cams_prim()
             logger.info("已创建默认地平面 + 静态场景")
+
+    def set_scene_visible(self, visible: bool = True, prim_path: str = None):
+        """开关环境背景场景（电力院/泉州3 那类 NuRec 扫描）。
+
+        **为什么需要**：NuRec 扫描是高斯的体渲染，2026-10-19 实测它把 GPU
+        打满 —— 场景可见 15~17 FPS、隐藏 **45 FPS**。而且常规画质旋钮
+        （渲染分辨率、samplesPerPixel、反射/半透、render_interval）**全部
+        无效**，瓶颈在高斯光栅化本身；NuRec 的 `crop` 属性运行时也改不了
+        （插件加载后把带 `omni:nurec:*` 的 Volume 换成了自有代理 prim）。
+        所以唯一有效的降渲染手段就是**不渲它**。
+
+        场景只当背景、不参与物理也不参与操作，所以做遥操作/数据采集时关掉
+        它毫无损失，要用时再开。
+
+        :param prim_path: 默认按 config.json `background_scene.prims` 里列的
+            依次找；都没有则跳过。
+        """
+        import omni.usd
+        from pxr import UsdGeom
+
+        stage = omni.usd.get_context().get_stage()
+        cands = ([prim_path] if prim_path
+                 else (self._config.get("background_scene") or {}).get("prims")
+                 or ["/World/dianliyuan_scene", "/World/qz3_scene"])
+        hit = []
+        for p in cands:
+            prim = stage.GetPrimAtPath(p)
+            if not prim or not prim.IsValid():
+                continue
+            img = UsdGeom.Imageable(prim)
+            (img.MakeVisible() if visible else img.MakeInvisible())
+            hit.append(p)
+        if not hit:
+            return {"status": "no_scene", "tried": cands}
+        logger.info(f"背景场景 {'显示' if visible else '隐藏'}: {hit}")
+        return {"status": "ok", "visible": bool(visible), "prims": hit}
 
     def _load_static_scene(self):
         """加载烘焙的静态场景(相机/桌子/抓取物体/参考球)。
@@ -339,9 +468,65 @@ class RobotManager:
             stage = omni.usd.get_context().get_stage()
             world = stage.GetPrimAtPath("/World")
             world.GetReferences().AddReference(path, Sdf.Path("/World"))
+            self._apply_base_z_static()      # 桌子/物体按 base_z 抬高；必须在机器人之前
             logger.info(f"静态场景已加载: {path}")
         except Exception as e:
             logger.warning(f"静态场景加载失败(不影响机器人): {e}")
+
+    def _apply_base_z_static(self):
+        """把静态场景里"放在地面上"的 prim 按 `world.base_z` 整体抬高。
+
+        名单走 config.json `world.raise_prims`（桌子 + 桌上的可抓物体 ——
+        物体不一起抬就会浮在桌子外）。`/World/dianliyuan_scene` 那份扫描
+        场景**不在名单里**：它的高度由 scripts/scene/add_dianliyuan_scene.py
+        直接烘焙进 static_scene.usda，跟这三个数不是一套。
+
+        必须**在机器人之前**做（prim 编辑要在 articulation 建立前，否则物理
+        后端失效，见 _load_static_scene 的说明）。
+        """
+        if not self._base_z:
+            return
+        import omni.usd
+        from pxr import Gf, UsdGeom
+
+        stage = omni.usd.get_context().get_stage()
+        prims = (self._config.get("world") or {}).get("raise_prims") or []
+        moved = []
+        for path in prims:
+            p = stage.GetPrimAtPath(path)
+            if not p or not p.IsValid():
+                continue
+            x = UsdGeom.Xformable(p)
+            for op in x.GetOrderedXformOps():
+                if op.GetOpName() == "xformOp:translate":
+                    v = op.Get()
+                    op.Set(Gf.Vec3d(float(v[0]), float(v[1]),
+                                    float(v[2]) + self._base_z))
+                    moved.append(path)
+                    break
+        if moved:
+            logger.info(f"静态场景抬高 {self._base_z} m: {moved}")
+
+    def _apply_base_z(self):
+        """把机器人抬到世界地面高度 `world.base_z`（config.json）。
+
+        与 `_create_ground_plane` 的地平面、`_TABLE_POSE` 的复位高度、
+        `_apply_base_z_static` 的桌子/物体是**一套, 必须同时改**：
+        错开任何一个, 机器人要么从半空掉下来、要么复位到地面以下。
+
+        base_z=0 时是空操作（历史默认）。
+        """
+        if not self._base_z:
+            return
+        try:
+            self.articulation.set_world_poses(
+                positions=np.asarray([[0.0, 0.0, self._base_z]],
+                                     dtype=np.float64),
+                orientations=np.asarray([[1.0, 0.0, 0.0, 0.0]],
+                                        dtype=np.float64))
+            logger.info(f"机器人抬到世界地面高度 z={self._base_z}")
+        except Exception as e:
+            logger.warning(f"设置机器人世界高度失败(继续): {e!r}")
 
     def _create_ground_plane(self):
         """创建地平面（带视觉网格与碰撞）。幂等：已存在则跳过（重复 load_scene 不再报错）。"""
@@ -349,6 +534,9 @@ class RobotManager:
 
         stage = omni.usd.get_context().get_stage()
         if stage.GetPrimAtPath("/World/ground_plane").IsValid():
+            # 已存在也要按 base_z 摆一次（幂等），否则第二次 load_scene 会把
+            # 高度留在上一次的值上。
+            self._set_prim_translate_z("/World/ground_plane", self._base_z)
             logger.info("地平面已存在，跳过创建")
             return
         try:
@@ -357,8 +545,6 @@ class RobotManager:
             plane = GroundPlane(prim_path="/World/ground_plane", size=20.0,
                                 color=np.array([0.5, 0.5, 0.5]))
             self.world.scene.add(plane)
-            # 地面高度保持默认 z=0: 扫描场景改为整体下移使其地面贴合 z=0
-            # (2026-09-29: 抬地面会让机器人跟着升高、桌子留原地 → 不对齐)
         except Exception as e:
             # 兜底：仅碰撞平面（无视觉），保证任何 Isaac 版本都可用
             logger.warning(f"GroundPlane 创建失败，退化为纯碰撞平面: {e}")
@@ -367,7 +553,11 @@ class RobotManager:
             UsdGeom.Xform.Define(stage, "/World/ground_plane")
             plane = UsdGeom.Plane.Define(stage, "/World/ground_plane/col")
             UsdPhysics.CollisionAPI.Apply(plane.GetPrim())
-        logger.info("已创建默认地平面")
+        # 高度：默认 z=0；用 world.base_z 时抬到扫描环境的可站地面。
+        # **直接写 xformOp:translate**，不用 set_world_pose —— 后者在 GroundPlane
+        # 上实测不生效（2026-10-21：设了 z=6.222，读回仍是 0，机器人直接掉到地面）。
+        self._set_prim_translate_z("/World/ground_plane", self._base_z)
+        logger.info(f"已创建默认地平面（z={self._base_z}）")
 
     #: 场景摩擦系数。**不设的话 PhysX 默认值在本场景实测 ≈0.05**（几乎无摩擦）：
     #: 夹爪压住物体也夹不住（一抬就滑脱）、机器人轮子在地面打滑（实测底座
@@ -825,27 +1015,192 @@ class RobotManager:
 
     # ==================== URDF ====================
 
-    def load_urdf(self, urdf_path: str, prim_path: str = "/humanoid",
-                  dest_path: str = None, fix_base: bool = False,
-                  merge_fixed_joints: bool = False, self_collision: bool = False):
-        """
-        导入 URDF 为 USD 并加载到场景，注册为 Articulation。
+    # ==================== URDF → USD 导入（按 Isaac 版本分派） ====================
+    #
+    # Isaac 5.1 与 6.2 的导入器是**两套完全不同的 API**：
+    #
+    #   5.1  `from isaacsim.asset.importer.urdf import _urdf`
+    #        两步：parse_urdf(目录, 文件名, cfg) → import_robot(..., dest.usd)
+    #        产物是**单个 .usd 文件**，不带 defaultPrim（要自己补写）
+    #        有 `parse_mimic` 开关（本项目必须设 False，见下方长注释）
+    #
+    #   6.2  `from isaacsim.asset.importer.urdf import URDFImporter, URDFImporterConfig`
+    #        一步：URDFImporter().import_urdf(cfg) → 返回顶层 .usda 路径
+    #        `cfg.usd_path` 是**目录**，产物是 asset-transformer 分层结构：
+    #            <dir>/<stem>/<stem>.usda          ← 顶层，带 defaultPrim
+    #            <dir>/<stem>/payloads/base.usda
+    #            <dir>/<stem>/payloads/Physics/physics.usda   ← 关节/驱动在这层
+    #        顶层带 **Physics 变体集**（none/physics/physx/mujoco），默认没选，
+    #        必须显式选 `physx` 否则关节属性不参与合成。
+    #
+    #   6.2 没有 `parse_mimic`。实测它的 mimic 关节**同时带 NewtonMimicAPI 和
+    #        自己的 drive**（5.1 的 PhysxMimicJointAPI 是没 drive 的），所以
+    #        软件 mimic 仍然写得进去 —— 但原生 NewtonMimicAPI 会同时生效，
+    #        两者理论上等价（同一组 multiplier），实测未发现冲突。
 
-        :param urdf_path: URDF 文件路径
-        :param prim_path: 场景挂载路径
-        :param dest_path: 生成的 USD 保存路径（默认与 URDF 同目录同名 .usd）
-        :param fix_base: 固定基座（人形通常 False；固定臂/台装设备 True）
-        :param merge_fixed_joints: 合并固定关节（调试时建议 False，保留完整结构；
-            add_camera 的 attach_to 也需要 link prim 存在）
-        :param self_collision: 自碰撞
-        :return: {"usd_path": ..., "prim_path": ..., "joint_names": [...]}
+    def _reject_if_robot_loaded(self):
+        """已经有机器人时拒绝重复加载，并给出可操作的原因。
+
+        为什么不让它"自动卸掉再加载"：两侧都试过，代价太大 —— 5.1 上二次
+        URDF 导入会在 `UsdGeomXformable::AddXformOp` 里 abort 把进程带死，
+        6.2 上则是 scene 注册表名字冲突。重启服务是唯一可靠的做法。
         """
+        if getattr(self, "articulation", None) is None:
+            return
+        raise RuntimeError(
+            "本会话已加载过机器人，不能再加载一次（Isaac 的 scene 注册表按名字"
+            f"唯一）。当前已注册: {self.robot_prim_path}。"
+            "请重启服务后再加载：pkill -f '[m]ain.py' 然后 ./scripts/run.sh")
+
+    @staticmethod
+    def _set_prim_translate_z(path: str, z: float):
+        """把某个 prim 的 xformOp:translate 的 z 分量设成 z（其余分量不动）。
+
+        比 `XFormPrim.set_world_pose` 可靠 —— 后者在 GroundPlane 这类包装对象上
+        实测不生效（设了 6.222，读回仍是 0）。没有 translate op 时新建一个。
+        """
+        import omni.usd
+        from pxr import Gf, UsdGeom
+
+        stage = omni.usd.get_context().get_stage()
+        prim = stage.GetPrimAtPath(path)
+        if not prim or not prim.IsValid():
+            return False
+        x = UsdGeom.Xformable(prim)
+        for op in x.GetOrderedXformOps():
+            if op.GetOpName() == "xformOp:translate":
+                v = op.Get()
+                op.Set(Gf.Vec3d(float(v[0]), float(v[1]), float(z)))
+                return True
+        x.AddTranslateOp().Set(Gf.Vec3d(0.0, 0.0, float(z)))
+        return True
+
+    @staticmethod
+    def _find_articulation_root(stage, root_path: str, max_depth: int = 4) -> str:
+        """在 root_path 子树里找带 ArticulationRootAPI 的 prim（BFS）。
+
+        找不到就返回 root_path 本身 —— 调用方（Articulation 构造）会在根上
+        自己再找一次，不会因为这里返回保守值就静默失败。
+        """
+        root = stage.GetPrimAtPath(root_path)
+        if not root or not root.IsValid():
+            return root_path
+        if root.HasAPI("ArticulationRootAPI"):
+            return root_path
+        queue = [(root, 0)]
+        while queue:
+            prim, depth = queue.pop(0)
+            if depth >= max_depth:
+                continue
+            for child in prim.GetAllChildren():
+                if child.HasAPI("ArticulationRootAPI"):
+                    return str(child.GetPath())
+                queue.append((child, depth + 1))
+        return root_path
+
+    def _import_urdf_to_usd(self, urdf_path: str, dest_path: str,
+                            fix_base: bool, merge_fixed_joints: bool,
+                            self_collision: bool) -> str:
+        """导入 URDF，返回**可挂载的顶层 USD 文件路径**。"""
+        try:
+            from isaacsim.asset.importer.urdf import (  # noqa: F401
+                URDFImporter, URDFImporterConfig)
+            return self._import_urdf_62(urdf_path, dest_path, fix_base,
+                                        merge_fixed_joints, self_collision)
+        except ImportError:
+            return self._import_urdf_51(urdf_path, dest_path, fix_base,
+                                        merge_fixed_joints, self_collision)
+
+    def _import_urdf_62(self, urdf_path: str, dest_path: str,
+                        fix_base: bool, merge_fixed_joints: bool,
+                        self_collision: bool) -> str:
+        """Isaac 6.2：URDFImporter + URDFImporterConfig（一步，分层产物）。"""
+        from isaacsim.asset.importer.urdf import (URDFImporter,
+                                                  URDFImporterConfig)
+
+        # 6.2 的 usd_path 是**目录**。调用方按老习惯传 "...xxx.usd" 时去掉
+        # 后缀当目录名，避免与既有的同名 .usd 文件冲突。
+        out_dir = dest_path or (os.path.splitext(urdf_path)[0] + "_usd")
+        if out_dir.endswith(".usd") or out_dir.endswith(".usda"):
+            out_dir = os.path.splitext(out_dir)[0]
+        os.makedirs(out_dir, exist_ok=True)
+
+        cfg = URDFImporterConfig()
+        cfg.urdf_path = urdf_path
+        cfg.usd_path = out_dir
+        cfg.fix_base = fix_base
+        cfg.merge_fixed_joints = merge_fixed_joints
+        cfg.allow_self_collision = self_collision
+        top = URDFImporter().import_urdf(cfg)
+        if not top or not os.path.exists(top):
+            raise RuntimeError(f"URDF 导入失败，产物不存在: {top!r}")
+        logger.info(f"URDF 已转换为分层 USD: {top}")
+
+        # 顶层带 Physics 变体集且默认不选 —— 不选 physx 的话关节/驱动属性
+        # 根本不参与合成，Articulation 会是个没有驱动目标的空壳。
+        try:
+            from pxr import Usd
+            stage = Usd.Stage.Open(top)
+            root = stage.GetDefaultPrim() if stage else None
+            if root:
+                vs = root.GetVariantSets().GetVariantSet("Physics")
+                if vs and vs.GetVariantSelection() != "physx":
+                    vs.SetVariantSelection("physx")
+                    stage.GetRootLayer().Save()
+                    logger.info("已选定 Physics 变体: physx")
+        except Exception as e:
+            logger.warning(f"选定 Physics 变体失败(继续): {e!r}")
+
+        # **剥掉原生 mimic 约束**（6.2 用 NewtonMimicAPI，5.1 用 PhysxMimicJointAPI）。
+        # 本项目的夹爪靠 `_apply_software_mimic` 每帧自己给跟随关节写位置目标；
+        # 原生约束同时生效时两套会互相顶 —— 6.2 上实测：带场景加载后夹爪跑到
+        # 63 rad、PhysX 刷 Invalid transform，整个仿真发散成 NaN。
+        # 5.1 侧对应的开关是 `parse_mimic=False`（见 _import_urdf_51），
+        # 6.2 没有这个字段，所以在这里事后剥。
+        try:
+            from pxr import Usd
+            stage2 = Usd.Stage.Open(top)
+            stripped = 0
+            for prim in stage2.Traverse():
+                for api in ("NewtonMimicAPI", "PhysxMimicJointAPI"):
+                    if prim.HasAPI(api):
+                        prim.RemoveAPI(api)
+                        stripped += 1
+            if stripped:
+                stage2.GetRootLayer().Save()
+                logger.info(f"已剥离原生 mimic 约束 {stripped} 处"
+                            "（软件 mimic 接管跟随关节）")
+        except Exception as e:
+            logger.warning(f"剥离原生 mimic 失败(夹爪可能发散): {e!r}")
+
+        # 6.2 的导入器**不覆盖**已存在的产物目录，每次导入在同级建一个新目录
+        # （`<stem>`、`<stem>_1`、`<stem>_2` …），每个 ~53 MB。只保留最新 2 个，
+        # 否则反复加载会把磁盘堆满（2026-10-21 实测 5 次就 314 MB）。
+        try:
+            import re
+            import shutil
+            # top = <out_dir>/<dir>/<stem>.usda —— 要按**目录名**去重，
+            # 不是文件名（文件名没有 _N 后缀，之前写错导致清理从不触发）。
+            top_norm = os.path.normpath(top)
+            parent = os.path.dirname(os.path.dirname(top_norm))
+            dir_name = os.path.basename(os.path.dirname(top_norm))
+            base = re.sub(r"_\d+$", "", dir_name)
+            sibs = sorted(
+                (os.path.join(parent, d) for d in os.listdir(parent)
+                 if d == base or d.startswith(base + "_")),
+                key=os.path.getmtime, reverse=True)
+            for old in sibs[2:]:
+                shutil.rmtree(old, ignore_errors=True)
+                logger.info(f"清理旧导入产物: {old}")
+        except Exception as e:
+            logger.debug(f"清理旧导入产物失败(不影响加载): {e!r}")
+        return top
+
+    def _import_urdf_51(self, urdf_path: str, dest_path: str,
+                        fix_base: bool, merge_fixed_joints: bool,
+                        self_collision: bool) -> str:
+        """Isaac ≤5.1：_urdf 两步流程（产物是单个 .usd，需补 defaultPrim）。"""
         from isaacsim.asset.importer.urdf import _urdf
-        from isaacsim.core.prims import Articulation
-        from isaacsim.core.utils.stage import add_reference_to_stage
-
-        if not os.path.exists(urdf_path):
-            raise FileNotFoundError(f"URDF not found: {urdf_path}")
 
         if dest_path is None:
             dest_path = os.path.splitext(urdf_path)[0] + ".usd"
@@ -870,22 +1225,23 @@ class RobotManager:
         # (Isaac 5.1: 枚举 UrdfJointTargetType.JOINT_DRIVE_POSITION;
         #  旧版是 UrdfJointTarget.DRIVE_ANGLE)
         try:
-            import_config.default_drive_type = _urdf.UrdfJointTargetType.JOINT_DRIVE_POSITION
+            import_config.default_drive_type = \
+                _urdf.UrdfJointTargetType.JOINT_DRIVE_POSITION
         except AttributeError:
             import_config.default_drive_type = _urdf.UrdfJointTarget.DRIVE_ANGLE
 
         # Isaac 5.x 两步流程: parse_urdf(目录, 文件名, cfg) 只内存解析;
         # import_robot 落盘 USD 并返回 articulation root
-        # (4.x 的 parse_urdf(urdf_path, dest_path, cfg) 会直接落盘并挂 stage)
         urdf_dir, urdf_file = os.path.split(os.path.abspath(urdf_path))
-        urdf_robot = urdf_interface.parse_urdf(urdf_dir, urdf_file, import_config)
-        root_in_file = urdf_interface.import_robot(urdf_dir, urdf_file, urdf_robot,
-                                                   import_config, dest_path, True)
+        urdf_robot = urdf_interface.parse_urdf(urdf_dir, urdf_file,
+                                               import_config)
+        # 返回值是文件内的 articulation root 路径；这里用不到 —— 挂载后由
+        # _find_articulation_root 在 stage 上现找，两代产物都能覆盖。
+        urdf_interface.import_robot(
+            urdf_dir, urdf_file, urdf_robot, import_config, dest_path, True)
         # 5.x 产物不带 defaultPrim —— 不补写的话挂载引用会 Unresolved reference。
         # defaultPrim 必须取顶层 Xform（lt10 实测）：指向 articulation root
         # （base_link）的嵌套 defaultPrim 会让 PhysX 展开异常甚至 segfault。
-        # 代价是挂载后多一层目录：<prim_path>/base_link/<link>，
-        # articulation root 实际路径 = prim_path + basename(root_in_file)。
         from pxr import Usd as _Usd
         prod = _Usd.Stage.Open(dest_path)
         if prod is not None and not prod.GetRootLayer().HasDefaultPrim():
@@ -894,8 +1250,34 @@ class RobotManager:
                 prod.SetDefaultPrim(tops[0])
                 prod.GetRootLayer().Save()
                 logger.info(f"已补写 USD defaultPrim: {tops[0].GetPath()}")
-        result = None
         logger.info(f"URDF 已转换为 USD: {dest_path}")
+        return dest_path
+
+    def load_urdf(self, urdf_path: str, prim_path: str = "/humanoid",
+                  dest_path: str = None, fix_base: bool = False,
+                  merge_fixed_joints: bool = False, self_collision: bool = False):
+        """
+        导入 URDF 为 USD 并加载到场景，注册为 Articulation。
+
+        :param urdf_path: URDF 文件路径
+        :param prim_path: 场景挂载路径
+        :param dest_path: 生成的 USD 保存路径（默认与 URDF 同目录同名 .usd）
+        :param fix_base: 固定基座（人形通常 False；固定臂/台装设备 True）
+        :param merge_fixed_joints: 合并固定关节（调试时建议 False，保留完整结构；
+            add_camera 的 attach_to 也需要 link prim 存在）
+        :param self_collision: 自碰撞
+        :return: {"usd_path": ..., "prim_path": ..., "joint_names": [...]}
+        """
+        from isaacsim.core.prims import Articulation
+        from isaacsim.core.utils.stage import add_reference_to_stage
+
+        if not os.path.exists(urdf_path):
+            raise FileNotFoundError(f"URDF not found: {urdf_path}")
+
+        # 直接调 load_urdf 走同一道闸（它会花几十秒做导入，白跑一遍更糟）
+        self._reject_if_robot_loaded()
+        dest_path = self._import_urdf_to_usd(
+            urdf_path, dest_path, fix_base, merge_fixed_joints, self_collision)
         # FK/IK 的链来源必须跟着实际加载的模型走（臂可能是 6 轴 RM65 重建版，
         # 而 arm_kin 默认指向 7 轴旧 URDF）。不同步会让抓取规划形状对不上、
         # VR IK 被关节顺序安全闸停用。见 arm_kin.set_urdf 的注释。
@@ -917,22 +1299,15 @@ class RobotManager:
         if os.path.exists(gains_path):
             self._bake_joint_gains(dest_path, gains_path)
 
-        # 不同 Isaac 版本的 parse_urdf 可能已自动挂到 stage（result.prim_path），
-        # 也可能只落盘 —— 统一确保以用户指定的 prim_path 存在于场景中
-        from pxr import Usd
+        # 统一挂到用户指定的 prim_path，再在子树里找 ArticulationRootAPI。
+        # **不能硬编码层级**：5.1 产物外面多包一层 base_link，6.2 的分层产物
+        # 外面多包一层机器人名（defaultPrim），两者差一层。
         import omni.usd
 
         stage = omni.usd.get_context().get_stage()
-        staged_path = getattr(result, "prim_path", None)
-        if not (staged_path and stage.GetPrimAtPath(staged_path) and
-                stage.GetPrimAtPath(staged_path).IsValid()):
+        if not stage.GetPrimAtPath(prim_path).IsValid():
             add_reference_to_stage(dest_path, prim_path)
-            staged_path = prim_path
-            # defaultPrim=顶层包装 Xform 时, articulation root 在其 base_link 子层
-            if root_in_file:
-                cand = f"{prim_path}/{os.path.basename(root_in_file.rstrip('/'))}"
-                if stage.GetPrimAtPath(cand).IsValid():
-                    staged_path = cand
+        staged_path = self._find_articulation_root(stage, prim_path)
 
         self.robot_prim_path = staged_path
         # 让 URDF 里的 <material> 真正显色（必须在建 Articulation 之前做，
@@ -953,6 +1328,7 @@ class RobotManager:
         # set_joint_positions / ROS2 指令闭环都立即可用
         self.world.reset()
         self.articulation.initialize()
+        self._apply_base_z()
         self._ensure_default_environment()
         self._build_mimic_map()
         self._apply_home_pose()
@@ -1197,7 +1573,11 @@ class RobotManager:
         return None
 
     #: 机器人底盘在桌面正前方的标准位姿（场景默认位）。X 键抓取第一步会送回来。
-    _TABLE_POSE = ((0.0, 0.0, 0.3295), (1.0, 0.0, 0.0, 0.0))
+    #: 机器人底盘在桌面正前方的标准位姿（X 键抓取第一步会送回来）。
+    #: z 是**相对世界地面**的 —— 地面被 `world.base_z` 抬高时这里也要跟着抬，
+    #: 否则复位会把机器人送到地面以下（见 _apply_base_z）。
+    _TABLE_POSE_Z = 0.3295
+    _TABLE_QUAT = (1.0, 0.0, 0.0, 0.0)
 
     def _reset_robot_to_table(self):
         """把机器人底盘送回桌面正前方的标准位姿，手臂回 home。
@@ -1205,7 +1585,8 @@ class RobotManager:
         用户要求：按 X 抓取前先"复位到桌前"，否则用 VR 把机器人开走之后
         随机摆放的可达范围就对不上了。
         """
-        pos, quat = self._TABLE_POSE
+        pos = (0.0, 0.0, self._base_z + self._TABLE_POSE_Z)
+        quat = self._TABLE_QUAT
         try:
             self.articulation.set_world_poses(
                 positions=np.asarray([pos], dtype=np.float64),
@@ -2007,6 +2388,10 @@ class RobotManager:
         :param prim_path: 场景挂载路径（usd_path 直连时生效）
         :return: {"usd_path": ..., "prim_path": ..., "joint_names": [...]}
         """
+        # 同一会话不能重复加载机器人：Isaac 的 scene 注册表按名字唯一，二次
+        # `world.scene.add` 直接抛 "name is not unique"；5.1 上更糟 —— URDF
+        # 导入器会在 AddXformOp 上 abort 把进程带死。这里提前拦成一句人话。
+        self._reject_if_robot_loaded()
         if usd_path:
             return self._load_robot_usd(usd_path, prim_path)
 
@@ -2114,6 +2499,7 @@ class RobotManager:
         if not self.world.is_playing():
             self.world.reset()
         self.articulation.initialize()
+        self._apply_base_z()
         self._ensure_default_environment()
         self._build_mimic_map()
         self._apply_home_pose()
@@ -2494,6 +2880,421 @@ class RobotManager:
             cam.set_world_pose(position=pos, orientation=quat, camera_axes="usd")
         return {"prim_path": prim_path}
 
+    # ==================== ROS2 契约（/<robot>/sim/<instance>/...） ====================
+    #
+    # 给上层运行时用的一套标准化仿真接口，目标是**同一套话题既能驱仿真、又能
+    # 接真机**。手臂类话题走独立中继进程（scripts/ros2_sim_contract.py，系统
+    # python3.10 + rclpy）；相机走 Isaac 内 OmniGraph（见 setup_ros2_cameras）。
+    #
+    # 为什么手臂不直接在 Isaac 里发：本 env 是 py3.12，Humble 的 rclpy 是
+    # py3.10，进程内 import 不了。中继那边每周期只调一次 get_sim_state，
+    # 消息量几十个 float，HTTP 完全够用。
+
+    def _contract_cfg(self) -> dict:
+        return self._config.get("ros2_contract") or {}
+
+    def get_contract_meta(self):
+        """中继启动时拉一次的静态信息（关节名、夹爪、末端 link、相机内参）。
+
+        一次性返回，避免中继起来时发一串 HTTP 把单任务队列占满。
+        """
+        cfg = self._contract_cfg()
+        robot = cfg.get("robot", "iasscsim_robot")
+        role = cfg.get("role", "sim")
+        base = f"/{robot}/{role}"
+
+        dofs = list(self.articulation.dof_names) if self.articulation else []
+        sides = {}
+        for side in ("left", "right"):
+            arm = [f"{side}_arm_{i}_joint" for i in range(1, 7)]
+            arm = [n for n in arm if n in dofs]
+            sides[side] = {
+                "topic": f"{base}/{side}_arm",
+                "arm_joints": arm,
+                "gripper_joint": self._GRIPPER_LEADER.get(side),
+                "flange_link": f"{side}_gripper_base_link",
+                "tcp_links": [f"{side}_gripper_right_pad_link",
+                              f"{side}_gripper_left_pad_link"],
+            }
+
+        return {
+            "robot": robot,
+            "role": role,
+            "base_topic": base,
+            "groups": cfg.get("groups") or {},
+            "sides": sides,
+            "cameras": self.get_camera_specs(),
+            "joint_count": len(dofs),
+            "errors": [] if dofs else ["机器人未加载"],
+        }
+
+    def get_camera_specs(self):
+        """契约里 4 路相机的 prim / 分辨率 / 内参（供中继发 CameraInfo 兜底）。"""
+        import omni.usd
+        from pxr import UsdGeom
+
+        cfg = (self._contract_cfg().get("cameras") or {})
+        mapping = cfg.get("map") or {}
+        if not mapping:
+            mapping = {
+                "left_hand_camera": {"prim": "left_wrist_gemini_335lg",
+                                     "resolution": [1280, 800]},
+                "right_hand_camera": {"prim": "right_wrist_gemini_335lg",
+                                      "resolution": [1280, 800]},
+                "chest_camera": {"prim": "chest_gemini_335lg",
+                                 "resolution": [1280, 800]},
+                "head_camera": {"prim": "head_zed_x", "resolution": [960, 600]},
+            }
+        stage = omni.usd.get_context().get_stage()
+        out = {}
+        base = f"/{self._contract_cfg().get('robot', 'iasscsim_robot')}/" \
+               f"{self._contract_cfg().get('role', 'sim')}"
+        for role_name, spec in mapping.items():
+            prim_name = spec.get("prim")
+            w, h = (spec.get("resolution") or [1280, 800])[:2]
+            entry = {"prim": prim_name, "width": int(w), "height": int(h),
+                     "frame_id": f"{role_name}_optical_link",
+                     "image_topic": f"{base}/{role_name}/color/image_raw",
+                     "info_topic": f"{base}/{role_name}/color/camera_info"}
+            prim = stage.GetPrimAtPath(f"/World/cams/{prim_name}") if prim_name \
+                else None
+            entry["prim_valid"] = bool(prim and prim.IsValid())
+            if entry["prim_valid"]:
+                try:
+                    cam = UsdGeom.Camera(prim)
+                    focal = float(cam.GetFocalLengthAttr().Get())
+                    ap = float(cam.GetHorizontalApertureAttr().Get()) or 20.955
+                    fx = float(w) * focal / ap
+                    entry.update({"focal_length_mm": round(focal, 6),
+                                  "horizontal_aperture_mm": round(ap, 6),
+                                  "fx": round(fx, 4), "fy": round(fx, 4),
+                                  "cx": round(w / 2.0, 4),
+                                  "cy": round(h / 2.0, 4)})
+                except Exception as e:
+                    entry["error"] = str(e)[:80]
+            out[role_name] = entry
+        return out
+
+    def _link_pose_table(self):
+        """一次读全所有 link 的世界位姿 → {name: (pos, quat_wxyz)}。"""
+        art = self.articulation
+        if art is None:
+            return {}
+        lt = np.asarray(art._physics_view.get_link_transforms()).reshape(-1, 7)
+        table = {}
+        # 6.2 的 Articulation 暴露的是 `body_names`（不是 link_names）。
+        # 顺序与 get_link_transforms() 的行一一对应。
+        for i, name in enumerate(getattr(art, "body_names", None) or []):
+            if i >= lt.shape[0]:
+                break
+            p = np.asarray(lt[i][:3], float)
+            q = np.asarray(lt[i][3:], float)          # wxyz
+            n = float(np.linalg.norm(q))
+            table[name] = (p, q / n if n > 1e-9 else q)
+        return table
+
+    @staticmethod
+    def _quat_wxyz_to_matrix(q):
+        w, x, y, z = q
+        return np.array([
+            [1 - 2 * (y * y + z * z), 2 * (x * y - w * z), 2 * (x * z + w * y)],
+            [2 * (x * y + w * z), 1 - 2 * (x * x + z * z), 2 * (y * z - w * x)],
+            [2 * (x * z - w * y), 2 * (y * z + w * x), 1 - 2 * (x * x + y * y)],
+        ])
+
+    def _pose_in_ref(self, table, name, ref, ref_inv):
+        """把 link 世界位姿表达在 ref 系里；ref 缺失时退回世界系。"""
+        if name not in table:
+            return None
+        p, q = table[name]
+        if ref is None or ref_inv is None:
+            return {"position": [round(float(v), 6) for v in p],
+                    "orientation": [round(float(v), 6) for v in q]}
+        T = np.eye(4)
+        T[:3, :3] = self._quat_wxyz_to_matrix(q)
+        T[:3, 3] = p
+        T = ref_inv @ T
+        qq = self._matrix_to_quaternion(T[:3, :3])
+        return {"position": [round(float(v), 6) for v in T[:3, 3]],
+                "orientation": [round(float(v), 6) for v in qq]}
+
+    def get_sim_state(self, ref_link: str = "base_link",
+                      with_velocity: bool = True,
+                      with_effort: bool = False):
+        """中继每周期唯一的反馈入口：一次 HTTP 拿全。
+
+        包含全量关节（名字/位置/速度/力矩）、当前驱动目标、双臂的夹爪状态与
+        flange/tcp 位姿，以及仿真实时状态。**只读，不改仿真**。
+        """
+        self._require_robot()
+        art = self.articulation
+        names = list(art.dof_names)
+        positions = [float(v) for v in
+                     np.asarray(art.get_joint_positions()).reshape(-1)]
+        out = {
+            "sim_time": float(getattr(self.world, "current_time", 0.0) or 0.0),
+            "playing": bool(self.world.is_playing()),
+            "ref_link": ref_link,
+            "joint_names": names,
+            "positions": positions,
+            "cmd_positions": [float(v) for v in self._current_targets()],
+            "errors": [],
+        }
+        if with_velocity:
+            try:
+                out["velocities"] = [float(v) for v in np.asarray(
+                    art.get_joint_velocities()).reshape(-1)]
+            except Exception as e:
+                out["velocities"] = []
+                out["errors"].append(f"velocity: {e}")
+        if with_effort:
+            try:
+                out["efforts"] = [float(v) for v in np.asarray(
+                    art.get_measured_joint_efforts()).reshape(-1)]
+            except Exception as e:
+                out["efforts"] = []
+                out["errors"].append(f"effort: {e}")
+
+        table = self._link_pose_table()
+        ref_inv = None
+        if ref_link and ref_link in table:
+            p, q = table[ref_link]
+            T = np.eye(4)
+            T[:3, :3] = self._quat_wxyz_to_matrix(q)
+            T[:3, 3] = p
+            ref_inv = np.linalg.inv(T)
+        elif ref_link and ref_link != "world":
+            out["errors"].append(f"ref_link '{ref_link}' 不存在，退回世界系")
+            ref_link = None
+
+        sides = {}
+        for side in ("left", "right"):
+            flange = f"{side}_gripper_base_link"
+            pad_r = f"{side}_gripper_right_pad_link"
+            pad_l = f"{side}_gripper_left_pad_link"
+            entry = {"flange": self._pose_in_ref(table, flange, ref_link,
+                                                 ref_inv)}
+            # TCP = 两指垫中点；姿态沿用法兰（TCP 没有独立 link）
+            if pad_r in table and pad_l in table:
+                mid = 0.5 * (table[pad_r][0] + table[pad_l][0])
+                if ref_inv is not None:
+                    mid = (ref_inv @ np.append(mid, 1.0))[:3]
+                fl = entry.get("flange")
+                entry["tcp"] = {"position": [round(float(v), 6) for v in mid],
+                                "orientation": fl["orientation"] if fl else
+                                [0.0, 0.0, 0.0, 1.0]}
+            else:
+                entry["tcp"] = None
+            try:
+                g = self.get_gripper_position(side=side)
+                entry["gripper"] = {k: g[k] for k in
+                                    ("angle_rad", "opening_mm", "fraction",
+                                     "position") if k in g}
+            except Exception as e:
+                entry["gripper"] = None
+                out["errors"].append(f"gripper[{side}]: {e}")
+            sides[side] = entry
+        out["sides"] = sides
+        return out
+
+    def move_j(self, side: str = "left", positions: list = None,
+               duration: float = 1.0, joint_names: list = None):
+        """点到点关节目标（单臂 6 轴）。带限幅，走 send_joint_command 的插值。
+
+        只下发这一侧臂关节 —— **不能让调用方拿反馈当输入全量下发**，
+        那会把躯干/升降/头写成当前姿态，重力会把身体一点点压塌（2026-10-08）。
+        """
+        self._require_robot()
+        if side not in ("left", "right"):
+            raise ValueError(f"side 必须是 left/right，收到 {side!r}")
+        names = list(positions and joint_names or
+                     [f"{side}_arm_{i}_joint" for i in range(1, 7)])
+        if joint_names:
+            allowed = {f"{side}_arm_{i}_joint" for i in range(1, 7)}
+            bad = [n for n in joint_names if n not in allowed]
+            if bad:
+                raise ValueError(f"move_j 只接受 {side} 臂关节，收到 {bad[:3]}")
+            names = list(joint_names)
+        vals = [float(v) for v in (positions or [])]
+        if len(vals) != len(names):
+            raise ValueError(f"positions({len(vals)}) 与 joint_names"
+                             f"({len(names)}) 长度不一致")
+
+        # 限幅：运行时真实限位（资产可能与 URDF 不同，见 isaac_teleop 的教训）
+        dofs = list(self.articulation.dof_names)
+        lim = np.asarray(self.articulation.get_dof_limits()).reshape(-1, 2)
+        clamped = []
+        for k, (n, v) in enumerate(zip(names, vals)):
+            if n not in dofs:
+                raise ValueError(f"未知关节 {n}")
+            i = dofs.index(n)
+            lo, hi = float(lim[i][0]), float(lim[i][1])
+            nv = min(max(v, lo), hi)
+            if abs(nv - v) > 1e-9:
+                clamped.append([n, round(v, 4), round(nv, 4)])
+            vals[k] = nv
+
+        self.send_joint_command(vals, duration=float(duration),
+                                joint_names=names)
+        return {"sent": True, "side": side,
+                "mode": "interpolating" if duration > 0 else "immediate",
+                "duration": float(duration), "joint_names": names,
+                "clamped": clamped}
+
+    def setup_ros2_cameras(self, enabled: bool = True,
+                           graph_path: str = None, fps: float = None,
+                           publish_clock: bool = False):
+        """建/删相机 OmniGraph（`/<robot>/sim/<cam>/color/{image_raw,camera_info}`）。
+
+        **前置条件**：`/World/cams` 得有相机 prim。`config.json` 的
+        `cameras.auto_register` 默认 false，那时 `/World/cams` 被
+        `SetActive(False)` —— 本方法会自动把它重新激活（不动别的）。
+
+        :param enabled: False = 删图，关掉相机话题
+        :param fps: 相机发布频率，写进 `omni:sensor:tickRate`；默认读
+            `ros2_contract.cameras.fps`
+        """
+        cfg = self._contract_cfg()
+        cam_cfg = cfg.get("cameras") or {}
+        graph_path = graph_path or cam_cfg.get("graph_path") or \
+            "/ROS2_SimContract"
+        if not enabled:
+            return contract_graph.remove_camera_graph(graph_path)
+
+        # cameras.auto_register=false 时 `/World/cams` 是 inactive，此时
+        # `prim.IsValid()` 为 False，get_camera_specs() 会把它们全过滤掉。
+        # 先激活再取规格（**激活** 不是删除，不会触发 PRIM_DELETION）。
+        try:
+            import omni.usd
+            cams = omni.usd.get_context().get_stage().GetPrimAtPath(
+                "/World/cams")
+            if cams and cams.IsValid() and not cams.IsActive():
+                cams.SetActive(True)
+                logger.info("已重新激活 /World/cams（ROS2 相机话题需要）")
+        except Exception as e:
+            logger.warning(f"激活 /World/cams 失败: {e!r}")
+
+        specs = self.get_camera_specs()
+        cameras = {}
+        for role, s in specs.items():
+            if not s.get("prim_valid"):
+                # 场景没加载或相机被停用 —— 交给调用方决定要不要报错
+                continue
+            cameras[role] = {
+                "prim_path": f"/World/cams/{s['prim']}",
+                "width": s["width"], "height": s["height"],
+                "frame_id": s["frame_id"],
+                "topic": f"{role}/color/image_raw",
+                "info_topic": f"{role}/color/camera_info",
+            }
+        if not cameras:
+            return {"ok": False, "graph_path": graph_path, "cameras": {},
+                    "errors": ["没有任何可用相机 prim —— 先 load_scene，"
+                               "并确认 cameras.auto_register / cams 未被停用"]}
+
+        robot = cfg.get("robot", "iasscsim_robot")
+        role = cfg.get("role", "sim")
+        res = contract_graph.build_camera_graph(
+            graph_path=graph_path, cameras=cameras,
+            node_namespace=f"/{robot}/{role}",
+            fps=float(fps if fps is not None
+                      else (cam_cfg.get("fps") or 15.0)),
+            publish_clock=bool(publish_clock))
+        res["ok"] = not res["errors"]
+        logger.info(f"ROS2 相机图: {res.get('ok')} "
+                    f"{list(res.get('cameras', {}))} {res['errors']}")
+        return res
+
+    def setup_ros2_contract(self, enabled: bool = True, rate_hz: float = None,
+                            ref_link: str = None):
+        """启停**进程内** ROS2 契约节点（`/<robot>/sim/<instance>/...`）。
+
+        与 `scripts/ros2_sim_contract.py`（py3.10 中继 + HTTP）是同一套话题的
+        两种实现 —— 二选一，别同时开。进程内这条没有 HTTP 往返，反馈能跑到
+        物理帧率；中继那条留给「Isaac 环境里 rclpy 不可用」的兜底场景。
+
+        :param rate_hz: 反馈发布频率（默认 50）；控制回调是每帧都处理的，不受此限
+        :param ref_link: flange/tcp 的参考系（默认 `base_link`）
+        """
+        cfg = self._contract_cfg()
+        if not enabled:
+            if self._ros2_contract is not None:
+                self._ros2_contract.shutdown()
+                self._ros2_contract = None
+                logger.info("ROS2 契约节点已关闭")
+            return {"running": False}
+
+        if self._ros2_contract is not None:
+            return {"running": True, "already": True,
+                    "node": self._ros2_contract._node.get_name()
+                    if self._ros2_contract._node else None}
+
+        rate_hz = float(rate_hz if rate_hz is not None
+                        else (cfg.get("state_hz") or 50.0))
+        self._ros2_contract_ref = ref_link or "base_link"
+
+        self._require_robot()
+        handlers = {
+            "send_joint_command": self.send_joint_command,
+            "move_j": self.move_j,
+            "set_gripper_position": self.set_gripper_position,
+        }
+        try:
+            # 传 **meta** 而不是 cfg：sides（夹爪关节名 / flange / tcp link）
+            # 是运行时从 articulation 推导的，配置里没有。
+            self._ros2_contract = contract_node.ContractNode(
+                self.get_contract_meta(), handlers)
+        except Exception as e:
+            logger.error(f"ROS2 契约节点创建失败: {e!r}")
+            self._ros2_contract = None
+            return {"running": False, "error": f"{type(e).__name__}: {e}"}
+
+        self._ros2_contract_period = 1.0 / max(rate_hz, 1e-3)
+        self._last_ros2_publish = 0.0
+        return {"running": True, "rate_hz": rate_hz,
+                "base": self._ros2_contract.base}
+
+    def ros2_contract_status(self):
+        """查进程内契约节点状态。"""
+        node = self._ros2_contract
+        if node is None:
+            return {"running": False}
+        return {"running": True,
+                "node": node._node.get_name() if node._node else None,
+                "base": node.base,
+                "rate_hz": round(1.0 / max(self._ros2_contract_period, 1e-9), 2),
+                "ref_link": self._ros2_contract_ref,
+                "publishers": len(node.pub)}
+
+    def _service_ros2_contract(self):
+        """主线程：处理一次 ROS2 控制回调。
+
+        回调就在这一句里同步执行（`spin_once` 跑在主线程），所以回调里直接调
+        `send_joint_command` / `move_j` / `set_gripper_position` 是安全的 ——
+        不需要缓冲、不需要锁。
+        """
+        if self._ros2_contract is None or self.articulation is None:
+            return
+        self._ros2_contract.spin_once(0.0)
+
+    def _publish_ros2_contract(self):
+        """主线程：按 `rate_hz` 把 `get_sim_state()` 发布到 feedback/*。"""
+        node = self._ros2_contract
+        if node is None or self.articulation is None:
+            return
+        if not self.world.is_playing():
+            return
+        now = time.time()
+        if now - self._last_ros2_publish < self._ros2_contract_period:
+            return
+        self._last_ros2_publish = now
+        try:
+            st = self.get_sim_state(ref_link=self._ros2_contract_ref,
+                                    with_velocity=True)
+            node.publish(st, ref_link=self._ros2_contract_ref)
+        except Exception as e:
+            logger.warning(f"ROS2 契约发布失败: {e!r}")
+
     # ==================== ROS2 Bridge ====================
 
     def setup_ros2_bridge(self, joint_names: list = None,
@@ -2566,9 +3367,13 @@ class RobotManager:
                 full[names.index(n)] = float(v)
             positions = full.tolist()
 
-        if self._ros_controller is None:
-            # 无 ROS2 桥的回退：positions 顺序 = articulation dof_names，
-            # 直接施加（HTTP/relay 控制路径）
+        if self._ros_controller is None or not self._ros_controller.is_initialized():
+            # 无可用 ROS2 桥的回退：positions 顺序 = articulation dof_names，
+            # 直接施加（HTTP/relay 控制路径）。
+            # **必须连 is_initialized() 一起判**：Isaac 6.2 是 py3.12、Humble
+            # rclpy 是 py3.10，setup_ros2_bridge 会留下一个构造失败的
+            # `_ros_controller`（非 None 但 initialized=False），只判 None 会
+            # 误走 ROS 路径，指令凭空消失。
             self._require_robot()
             names = list(self.articulation.dof_names)
             if len(positions) != len(names):
@@ -2733,7 +3538,8 @@ class RobotManager:
         默认与 `get_joint_names` **同口径**（隐藏夹爪跟随关节），两者的
         `dof_names[i]` ↔ `feedback[i]` 一一对应；`full=true` 给全量。
         """
-        if self._ros_controller is None:
+        if self._ros_controller is None or not self._ros_controller.is_initialized():
+            # 同 send_joint_command：未初始化的 controller 要当作没有
             self._require_robot()
             fb = self._joint_positions_flat()
             cmd = list(getattr(self, "_last_direct_cmd", []))
@@ -2861,3 +3667,165 @@ class RobotManager:
         except Exception:
             return
         self._ros_controller.publish_joint_states(positions)
+
+    # ==================== XRoboToolkit 遥操作端（UDP） ====================
+    #
+    # md 那套链路的仿真侧：遥操作端在 `xr-robotics` env 里跑 placo IK，每帧把
+    # 50 个关节的目标位置用 UDP 发过来；这里只负责收下并施加。
+    #
+    # 为什么不用进程内的 isaac_teleop.py：那是 CloudXR + isaacteleop 的另一套
+    # VR 端软件，与本链路互斥。两条路都写 articulation 会互相覆盖，所以
+    # start_udp_teleop 会把进程内 VR 挂起（`set_suspended`），stop 时恢复。
+
+    def start_udp_teleop(self, port: int = None, host: str = None,
+                         status_port: int = None, status_hz: float = None,
+                         suspend_vr: bool = True):
+        """开 UDP 遥操作入口。参数缺省取 config.json 的 `udp_teleop` 段。
+
+        :param port: 接收关节目标的端口（遥操作端 `--isaac-udp-port`）
+        :param status_port: 状态回发端口（0=不回发）；契约桥监听它
+        :param suspend_vr: 是否挂起进程内 VR 遥操作（默认是，避免两路抢控制权）
+        """
+        cfg = self._udp_cfg
+        port = int(port if port is not None else cfg.get("port", 63900))
+        host = str(host if host is not None else cfg.get("host", "127.0.0.1"))
+        status_port = int(status_port if status_port is not None
+                          else cfg.get("status_port", 0))
+        status_hz = float(status_hz if status_hz is not None
+                          else cfg.get("status_hz", 10.0))
+
+        if self._udp_link is not None and self._udp_link.is_initialized():
+            if self._udp_link.port == port:
+                return {"status": "already_running", **self._udp_link.status()}
+            self.stop_udp_teleop()          # 换端口 = 先关再开
+
+        try:
+            link = udp_teleop.UdpTargetLink(
+                port=port, host=host, status_port=status_port,
+                status_hz=status_hz).start()
+        except OSError as e:
+            logger.error(f"UDP 遥操作入口绑定失败: {e}")
+            return {"status": "error", "reason": f"bind {host}:{port} 失败: {e}"}
+
+        self._udp_link = link
+        self._udp_last_names = None
+        if suspend_vr and self._vr_teleop is not None:
+            self._vr_teleop.set_suspended(True)
+        logger.info(f"UDP 遥操作入口启动: udp://{host}:{port}"
+                    f"（进程内 VR 遥操作{'已挂起' if suspend_vr else '保持' }）")
+        return {"status": "started", "suspend_vr": bool(suspend_vr),
+                **link.status()}
+
+    def stop_udp_teleop(self, resume_vr: bool = True):
+        """关 UDP 遥操作入口，恢复进程内 VR 遥操作。"""
+        if self._udp_link is None:
+            return {"status": "not_running"}
+        self._udp_link.stop()
+        self._udp_link = None
+        self._udp_last_names = None
+        if resume_vr and self._vr_teleop is not None:
+            self._vr_teleop.set_suspended(False)
+        return {"status": "stopped", "resume_vr": bool(resume_vr)}
+
+    def udp_teleop_status(self):
+        """读 UDP 遥操作入口状态（含帧龄，用来判断遥操作端是不是挂了）。"""
+        if self._udp_link is None:
+            return {"running": False, "config": dict(self._udp_cfg)}
+        return self._udp_link.status()
+
+    def _apply_udp_targets(self):
+        """主线程：把最新一帧 UDP 目标施加到 articulation。
+
+        语义与 `run_isaac_udp_target.py` 一致 —— 收到就一直保持，丢包时机器人
+        停在原地（位置驱动目标本来就保持），不会弹回零位。遥操作端挂没挂由
+        `udp_teleop_status().frame_age_s` 判断，不在这里自作主张。
+
+        底盘速度控制激活时轮子分量被忽略（与 `_apply_joint_positions` 同一条
+        规则）：md 那边把非臂关节都钉在 0 并一并广播，不排除轮子的话
+        `set_base_velocity` 会被每帧覆盖。
+        """
+        link = self._udp_link
+        if link is None or self.articulation is None:
+            return
+        # 自动抓取进行中：丢掉手柄目标，否则用户一握握把就把手臂从规划轨迹上
+        # 拽走。（进程内 VR 那条路是靠 `set_suspended` 挡的，这里同理。）
+        if self._auto_pick is not None:
+            return
+        latest = link.get_latest()
+        if latest is None or not self.world.is_playing():
+            return
+        names, positions, _t = latest
+        try:
+            dofs = list(self.articulation.dof_names)
+            keep, idxs, vals = [], [], []
+            for n, v in zip(names, positions):
+                if n not in dofs:
+                    continue                      # 遥操作端多发的关节，忽略
+                if self._base_cmd is not None and n in _BASE_WHEEL_JOINTS:
+                    continue                      # 轮子归 set_base_velocity 专管
+                keep.append(n)
+                idxs.append(self.articulation.get_dof_index(n))
+                vals.append(float(v))
+            if not idxs:
+                return
+            # 5.x view API 要求 (M, K)，单机器人 M=1
+            self.articulation.set_joint_position_targets(
+                np.asarray(vals, dtype=np.float32).reshape(1, -1),
+                joint_indices=idxs)
+            # 软件 mimic 不用在这里显式跑：step() 里的 `_apply_software_mimic()`
+            # 紧接着会以"指令目标"(= 刚写下去的这一帧)重算跟随关节。md 那边已经
+            # 把 12 个夹爪关节全发过来了，主动关节值相同 → 算出的跟随值也相同，
+            # 写的是同一批目标，不会打架。
+            if self._udp_last_names is None or keep != self._udp_last_names:
+                logger.info(f"UDP 遥操作接管 {len(keep)} 个关节"
+                            f"（首帧: {keep[:6]}{' …' if len(keep) > 6 else ''}）")
+                self._udp_last_names = list(keep)
+        except Exception as e:
+            logger.error(f"施加 UDP 关节目标失败: {e}")
+
+    def _process_udp_events(self):
+        """主线程：处理遥操作端发来的按键事件。
+
+        与进程内 VR 那条路的左手 X 键语义完全一致（见 isaac_teleop.py 的
+        `consume_menu_request`）：边沿触发的**一次性**请求，在这里启动自动抓取。
+
+        `auto_pick` 必须在仿真主线程调用 —— 它的插值靠 `step()` 推进，从 HTTP
+        协程里同步等会死锁（见 auto-pick-menu-key 的说明）。
+        """
+        link = self._udp_link
+        if link is None:
+            return
+        for payload, _t in link.take_events():
+            kind = payload.get("event")
+            if kind != "auto_pick":
+                logger.warning(f"未知 UDP 事件，忽略: {kind!r}")
+                continue
+            side = str(payload.get("side") or "left")
+            try:
+                res = self.auto_pick(side=side)
+                logger.info(f"UDP 事件触发自动抓取(side={side}): {res}")
+            except Exception as e:
+                logger.warning(f"UDP 事件处理异常: {e!r}")
+
+    def _publish_udp_state(self):
+        """主线程：把仿真实测状态回发给遥操作端（限频，失败静默）。"""
+        link = self._udp_link
+        if link is None or self.articulation is None:
+            return
+        if not self.world.is_playing():
+            return
+        try:
+            dofs = list(self.articulation.dof_names)
+            q = self._joint_positions_flat()
+            v = [float(x) for x in np.asarray(
+                self.articulation.get_joint_velocities()).reshape(-1)]
+            base = None
+            try:
+                p, quat = self.articulation.get_world_pose()
+                base = [float(x) for x in (*np.asarray(p).reshape(-1),
+                                           *np.asarray(quat).reshape(-1))]
+            except Exception:
+                pass
+            link.record_state(dofs, q, v, base)
+        except Exception:
+            pass

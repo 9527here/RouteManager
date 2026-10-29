@@ -45,3 +45,6 @@ assets/**/*.jpeg
 assets/*.zip
 assets/arm66/
 assets/deliver/
+
+# Isaac 字体图集（--/app/font/saveAtlas=1 时生成在仓库根，20MB+）
+font_atlas.png
