@@ -19,7 +19,12 @@ import numpy as np
 import arm_kin
 import grasp_planner
 import gripper_model
-import udp_teleop
+try:
+    import udp_teleop
+except ImportError:
+    # VR 的 UDP 遥操作通路只存在于 feat 分支（main 里没有 udp_teleop.py）。
+    # 这里做成可选导入：main 上缺它不影响服务启动，只是 start_udp_teleop 不可用。
+    udp_teleop = None
 from ros2_bridge import contract_graph, contract_node
 from ros2_bridge.controller import Ros2JointController, lerp, smoothstep
 
