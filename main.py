@@ -12,12 +12,43 @@ main.py — RouteManager 入口
   - 启动前若发现上次残留实例占用端口，自动清理后再起服务
 """
 
+import fnmatch
 import logging
 import os
 import re
 import subprocess
 import sys
 import time
+
+# ---- 隔离 ROS humble 对 Isaac(py3.12) 的两层污染 ----
+# ~/.bashrc 会 source /opt/ros/humble/setup.bash，带进两份 py3.10 的东西：
+#   1) PYTHONPATH 里 .../python3.10/site-packages —— import pinocchio 先命中
+#      那儿只有 cp310 扩展的包：
+#        ModuleNotFoundError: No module named 'pinocchio.pinocchio_pywrap_default'
+#   2) LD_LIBRARY_PATH 里 /opt/ros/humble/lib/x86_64-linux-gnu —— 里面的
+#      libeigenpy.so / libcoal.so 会顶掉环境 cmeel 那份：
+#        undefined symbol: EIGENPY_ARRAY_APIPyArray_RUNTIME_VERSION
+# 两者都会让 isaacsim.robot_motion.pink 加载失败。环境里本来就有 py312 的
+# pinocchio 3.9 + eigenpy 3.12，摘掉这两处即可。scripts/run.sh 在 shell 层
+# 做同样的事；这里兜底「直接 python main.py」这类不经过 run.sh 的启动方式。
+# /opt/ros/humble/lib 必须保留：ROS_DISTRO 存在时 isaacsim.ros2.core 走系统
+# ROS 库，抽掉会 "ROS2 Bridge startup failed"。
+_ROS_LIB_PATTERN = "/opt/ros/*/lib/*-linux-gnu"
+
+
+def _strip_opt_ros_paths():
+    sys.path[:] = [p for p in sys.path if not p.startswith("/opt/ros/")]
+    val = os.environ.get("PYTHONPATH")
+    if val:
+        kept = [p for p in val.split(os.pathsep)
+                if p and not p.startswith("/opt/ros/")]
+        if kept:
+            os.environ["PYTHONPATH"] = os.pathsep.join(kept)
+        else:
+            os.environ.pop("PYTHONPATH", None)
+
+
+_strip_opt_ros_paths()
 
 import standalone_server
 from standalone_server import IsaacTaskServer
@@ -30,6 +61,33 @@ logging.basicConfig(
 logger = logging.getLogger("route_manager.main")
 
 PROJECT_DIR = os.path.dirname(os.path.abspath(__file__))
+
+
+def _reexec_without_ros_libs():
+    """LD_LIBRARY_PATH 只在进程启动时被 ld.so 读取，进程内改 os.environ 无效。
+    带着 /opt/ros/humble/lib/x86_64-linux-gnu 启动时，pinocchio 的扩展会链到
+    ROS 那份 py3.10 的 libeigenpy.so，报
+        undefined symbol: EIGENPY_ARRAY_APIPyArray_RUNTIME_VERSION
+    （sys.path 已由 _strip_opt_ros_paths 清干净，能走到这里就说明轮到库了）。
+    所以趁 SimulationApp 还没起，摘掉该目录后重启解释器。
+    必须放在 main() 里：模块被 import 时不触发。"""
+    if os.environ.get("ROUTE_MANAGER_ENV_CLEANED") == "1":
+        return
+    ld = os.environ.get("LD_LIBRARY_PATH", "")
+    parts = [p for p in ld.split(os.pathsep) if p]
+    kept = [p for p in parts if not fnmatch.fnmatch(p, _ROS_LIB_PATTERN)]
+    if len(kept) == len(parts):
+        return
+    env = dict(os.environ)
+    if kept:
+        env["LD_LIBRARY_PATH"] = os.pathsep.join(kept)
+    else:
+        env.pop("LD_LIBRARY_PATH", None)
+    env["ROUTE_MANAGER_ENV_CLEANED"] = "1"
+    logger.warning("LD_LIBRARY_PATH 里有 /opt/ros 的 arch 库目录"
+                   "（py3.10 的 libeigenpy/libcoal），清理后重启解释器再启动 Isaac")
+    os.execve(sys.executable,
+              [sys.executable, os.path.abspath(__file__), *sys.argv[1:]], env)
 
 
 def _pids_listening_on(port):
@@ -93,6 +151,7 @@ def cleanup_stale_server(port, timeout=8.0):
 
 
 def main():
+    _reexec_without_ros_libs()
     headless = os.environ.get("HEADLESS", "0") == "1"
     port = int(os.environ.get("ROUTE_MANAGER_PORT", "18765"))
 

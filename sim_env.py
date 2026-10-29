@@ -8,6 +8,7 @@ SimulationApp 之后、其他模块之前完成。
 """
 
 import logging
+import os
 
 logger = logging.getLogger("route_manager.sim_env")
 
@@ -19,7 +20,15 @@ class SimEnv:
         logger.info(f"正在启动 SimulationApp，headless={headless}")
         from isaacsim import SimulationApp
 
-        self.simulation_app = SimulationApp({"headless": headless})
+        config = {"headless": headless}
+        # RM_EXTRA_ARGS：给 Kit 追加 `--/setting=value` 形式的临时参数，排查用。
+        #   RM_EXTRA_ARGS="--/renderer/multiGpu/enabled=False" ./scripts/run.sh
+        extra = os.environ.get("RM_EXTRA_ARGS", "").split()
+        if extra:
+            config["extra_args"] = extra
+            logger.info(f"追加 Kit 参数: {extra}")
+
+        self.simulation_app = SimulationApp(config)
         self._enable_plugins()
         logger.info("SimulationApp 初始化完成")
 
@@ -36,6 +45,16 @@ class SimEnv:
             ext_manager.set_extension_enabled_immediate("isaacsim.ros2.bridge", True)
         except Exception as e:
             logger.warning(f"ROS2 Bridge 插件加载失败（ROS2 功能降级，不影响仿真）: {e}")
+
+        # ROS2 节点定义（ROS2CameraHelper / ROS2CameraInfoHelper 等）。
+        # **6.2 必须单独启用这个扩展**：只开 isaacsim.ros2.bridge 的话，日志里会
+        # 出现 "Creating unregistered node type isaacsim.ros2.bridge.ROS2CameraHelper
+        # (version 4)"，节点类型注册不上，相机 OmniGraph 建不出来。
+        try:
+            ext_manager.set_extension_enabled_immediate("isaacsim.ros2.nodes", True)
+            logger.info("已加载 ROS2 节点扩展（相机/时钟 OmniGraph 节点）")
+        except Exception as e:
+            logger.warning(f"ROS2 节点扩展加载失败（相机话题不可用）: {e}")
 
         # Debug Draw：调试可视化（骨架、路径、bbox）
         try:
