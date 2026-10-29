@@ -102,7 +102,7 @@ def Xform "World"
     }
 
     def Xform "vla_table" (
-        prepend references = @/home/jy/VLA/Collected_piper_table_clean_v2/piper_table_clean_v2.usd@</World/table>
+        prepend references = @/home/jy/datasets/vla_data/L2_仿真运行/场景/操作台_piper_table_v2/piper_table_clean_v2.usd@</World/table>
     )
     {
         rel material:binding = </World/friction_mat>
@@ -165,13 +165,23 @@ def Xform "World"
         uniform token[] xformOpOrder = ["xformOp:rotateXYZ"]
     }
     # ---- ENV LIGHT END ----
-    # ---- QZ3 SCENE BEGIN (add_qz3_scene.py) ----
-    def Xform "qz3_scene" (
-        prepend references = @/home/jy/datasets/vla_data/L2_仿真运行/场景/泉州3/lcc-usdz-result/model.usdz@</World>
+#     # ---- QZ3 SCENE BEGIN (add_qz3_scene.py) ----
+#     def Xform "qz3_scene" (
+#         prepend references = @/home/jy/datasets/vla_data/L2_仿真运行/场景/泉州3/lcc-usdz-result/model.usdz@</World>
+#     )
+#     {
+#         double3 xformOp:translate = (1.05, -5.4, 0.058)
+#         uniform token[] xformOpOrder = ["xformOp:translate"]
+#     }
+#     # ---- QZ3 SCENE END ----
+
+    # ---- DLYUAN SCENE BEGIN (add_dianliyuan_scene.py) ----
+    def Xform "dianliyuan_scene" (
+        prepend references = @/home/jy/digital_asset/福州电力院usdz/lcc-usdz-result/model.usdz@</World>
     )
     {
-        double3 xformOp:translate = (1.05, -5.4, 0.058)
+        double3 xformOp:translate = (-1.934, -0.429, 6.513)
         uniform token[] xformOpOrder = ["xformOp:translate"]
     }
-    # ---- QZ3 SCENE END ----
+    # ---- DLYUAN SCENE END ----
 }

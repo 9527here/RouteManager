@@ -17,7 +17,7 @@ stage = omni.usd.get_context().get_stage()
 xc = UsdGeom.XformCache(Usd.TimeCode.Default())
 out = {"table": {}, "objects": {}}
 
-VLA = "/home/jy/VLA/Collected_piper_table_clean_v2"
+VLA = "/home/jy/datasets/vla_data/L2_仿真运行/场景/操作台_piper_table_v2"
 TABLE_USD = f"{VLA}/piper_table_clean_v2.usd"
 SUBS = f"{VLA}/piper_table/SubUSDs"
 TABLE_PRIM = "/World/vla_table"

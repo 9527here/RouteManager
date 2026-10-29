@@ -10,8 +10,8 @@ import os
 VALS = "/tmp/static_vals.json"
 OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                    "static_scene.usda")
-TABLE_USD = ("/home/jy/VLA/Collected_piper_table_clean_v2/"
-             "piper_table_clean_v2.usd")
+TABLE_USD = ("/home/jy/datasets/vla_data/L2_仿真运行/场景/"
+             "操作台_piper_table_v2/piper_table_clean_v2.usd")
 
 v = json.load(open(VALS))
 L = []
