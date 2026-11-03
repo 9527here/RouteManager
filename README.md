@@ -1,327 +1,161 @@
 # RouteManager
 
-基于 NVIDIA Isaac Sim 的人形机器人仿真管理服务器。通过 HTTP API 完成机器人仿真的全流程操作：URDF 导入与修改、相机传感器管理、ROS2 关节控制，开箱即用，无需编写 Isaac Sim 代码。
+**面向自研机器人的一站式工厂仿真配置、任务验证与数据采集平台。**
 
-## 特性
+RouteManager以 **Isaac Sim 6.2** 为运行底座，整合机器人描述、CAD/USD工厂资产、ROS2/HTTP控制、VR遥操作、人物活动与Isaac Lab批量环境，服务于 **Real → Sim → Real**：把真实机器人与工厂任务带进仿真，验证可达性和任务执行，生成可追溯数据，再支持策略回到真机验证。
 
-- **URDF 一键导入**：URDF → USD 自动转换，注册为可控制的 Articulation；导入前可用纯 XML 工具修改关节限位、动力学参数
-- **相机传感器**：在机器人任意位置挂载虚拟相机，支持设置分辨率、焦距、位姿，抓图返回 base64 JPEG
-- **ROS2 闭环**：外部 ROS2 节点往 `/humanoid/joint_command` 发 `JointState` 即可驱动机器人，仿真的实际关节状态以固定频率发布到 `/humanoid/joint_states` —— 同一套控制代码可无缝切换仿真/真机。**走 `scripts/ros2_relay.py` 中继，不用进程内的 `setup_ros2_bridge`**（原因见「ROS2 闭环」一节）
-- **底盘遥控**：四轮 skid-steer 速度控制（`set_base_velocity`），附带 WASD 键盘遥控脚本，失联自动刹停
-- **VR 遥操作**：Pico 4 Ultra 通过 CloudXR 接入，控制器位姿驱动手臂关节、扳机控制夹爪，机器人相机画面回流到头显
-- **HTTP 任务服务**：所有操作通过 `POST /execute` 调用，参数自动合并默认配置；另提供 Python 直通接口用于在线调试
-- **有界面 / 无头双模式**：支持带 GUI 交互，也支持服务器上无头运行
+当前重点是RM65六轴双臂人形整机、CTAG2F120夹爪、四轮八驱底盘，以及电柜按钮、旋钮、压板和阀门任务。完整真机闭环仍需实物标定、训练和部署验收。
 
-## 环境要求
+## 工作流
 
-| 依赖 | 说明 |
+```mermaid
+flowchart LR
+  A[真实机器人与工厂任务] --> B[URDF / CAD / USD与参数配置]
+  B --> C[Isaac Sim场景与控制接入]
+  C --> D[可达性 / 全身几何 / 接触验证]
+  D --> E[交互示教与任务执行]
+  E --> F[Isaac Lab并行环境与批量采集]
+  F --> G[轨迹 / 图像 / 状态 / 成功与失败证据]
+  G --> H[模型训练与策略评估]
+  H --> I[真机部署与反馈]
+  I --> B
+```
+
+每个阶段保存模型身份、参数、坐标、实际反馈与验证范围。参考参数、几何可达、机构受力数据和人形真实接触数据分别标记，便于判断哪些结果能进入后续训练或真机验证。
+
+## 能做什么
+
+| 能力 | 当前实现与入口 |
 |---|---|
-| Isaac Sim | 需自带 Python 环境（内置 fastapi/uvicorn，缺失时 `pip install fastapi uvicorn`） |
-| ROS2（可选） | 仅 ROS2 闭环需要，Humble 测试通过。**Humble 的 rclpy 只有 python3.10 版，isaacsim5.1 却是 python3.11 —— 必须走中继脚本，见「ROS2 闭环」** |
-| opencv-python | 相机抓图编码用 |
+| 仿真配置与统一控制 | HTTP任务服务、URDF→USD导入、机器人预设、关节/夹爪/底盘控制；[HTTP接口](docs/HTTP接口.md) |
+| 自研机器人接入 | RM65/CTAG2F120接口语义、软件mimic、模型身份与关节检查、ROS2契约；[ROS2接口](docs/ROS2接口_iasscsim_robot.md) |
+| 工厂任务与交互 | 电柜机构、阀门真实接触转动、任务面板、运输收臂与接近工位；[任务导航](docs/README.md#任务与机器人验证) |
+| 可达性与执行验证 | URDF FK/数值雅可比、连续IK、全身几何、驻车与接触门控；[阀门流程](docs/阀门手轮操作.md) |
+| Isaac Lab批量采集 | 33个L3机构任务、并行环境、HDF5轨迹、可选RGB与独立数据验收；[批量采集](docs/IsaacLab电力柜批量采集.md) |
+| VR与多方资源 | Pico/XRoboToolkit遥操作、SimPeople人物巡检、SimScene资产工具；[集成导航](docs/README.md#资源与外部集成) |
+| 真机闭环基础 | ROS2控制/反馈契约和rm_driver桥接；硬件标定、策略迁移与完整闭环验收继续建设 |
 
-## 完整启动流程
+### 已验证结果与范围
 
-### 第 0 步：环境准备（只需一次）
+- **批采**：4环境、33个任务各2回合，66/66通过；另有2环境RGB与合作停止验证。当前数据为`fixture_effort`机构广义力控制，尚未包含人形手臂接触执行器。[数据契约](docs/IsaacLab电力柜批量采集.md)
+- **接触操作**：固定底盘下完成多个阀门的夹持、转动、松爪和退出；实际转角、载荷、滑移及失败记录单独保留。[阀门验证](docs/其他阀门操作验证.md)
+- **人物与场景工具**：单人两点巡检、取消停稳、与原地阀门动作并行通过；SimScene静态视觉层导入/移除及侵入拒绝通过。[SimPeople](docs/SimPeople_场景附着与单人巡检.md) · [SimScene](docs/SimScene_资产工具与当前场景接入.md)
 
-```bash
-# Isaac Sim Python 环境自检（缺 fastapi/uvicorn/opencv 就补装）
-micromamba run -n isaacsim5.1 python -c "import isaacsim, fastapi, uvicorn, cv2" \
-  || micromamba run -n isaacsim5.1 pip install fastapi uvicorn opencv-python
+这些是具体模型与场景的验收结果。实物力学标定、通用全身规划、人体物理接触、完整人形批量示教及策略回真机仍需继续验证。
 
-# 没有 isaacsim5.1 环境时创建（Isaac Sim 5.1 官方 pip 包，需 Python 3.11）
-# micromamba create -n isaacsim5.1 python=3.11
-# micromamba run -n isaacsim5.1 pip install "isaacsim[all,extscache]==5.1.*" fastapi uvicorn opencv-python
+## 环境
 
-# ROS2（可选，仅闭环控制需要）
-# 装在 /opt/ros/humble 时 run.sh 自动 source；装在别处请改 scripts/run.sh 里的 ROS_SETUP
-# 注意：rclpy 只能给系统 python3.10 用，中继脚本走它，见「ROS2 闭环」
-```
-
-### 第 1 步：放置资产
-
-把 URDF（连同 `meshes/` 目录）放入 `assets/`，服务按仓库根的相对路径解析（如 `assets/humanoid.urdf`）。
-
-### 第 2 步：启动服务
-
-```bash
-git clone https://github.com/9527here/RouteManager.git
-cd RouteManager
-
-# 有界面启动（桌面环境）
-./scripts/run.sh
-
-# 无头模式（服务器 / CI）
-HEADLESS=1 ./scripts/run.sh
-
-# 其他 Isaac 环境（脚本默认找 micromamba 的 isaacsim5.1）
-ISAAC_PYTHON="/path/to/envs/isaacsim6.0/bin/python" ./scripts/run.sh
-```
-
-脚本自动 source ROS2 环境、用 isaacsim5.1 的 Python 起服务。**首次启动加载 Isaac Sim 需 1~3 分钟属正常**；看到日志 `HTTP 服务启动: http://127.0.0.1:18765` 即就绪。
-
-### 第 3 步：确认服务可用
-
-```bash
-curl http://127.0.0.1:18765/health
-# {"status":"IDLE","task":null}   ← IDLE = 就绪
-```
-
-### 第 4 步：标准工作循环
-
-```bash
-# 1) 地面场景 → 2) 加载机器人（路径已内置 config.json，可不传参数）→ 3) 查关节
-curl -X POST http://127.0.0.1:18765/execute -H 'Content-Type: application/json' \
-  -d '{"action": "load_scene"}'
-curl -X POST http://127.0.0.1:18765/execute -H 'Content-Type: application/json' \
-  -d '{"action": "load_robot"}'
-curl -X POST http://127.0.0.1:18765/execute -H 'Content-Type: application/json' \
-  -d '{"action": "get_joint_names"}'
-
-# 相机 / ROS2 闭环控制 / 抓图 —— 见下方「使用示例」
-```
-
-**或用一键脚本**（等价于上面三连，内置服务等待与结果摘要）：
-
-```bash
-./scripts/load_scene.sh                        # 地面 + config 默认机器人
-./scripts/load_scene.sh -n v3_ctag2f120_cameras # 按预设名加载
-./scripts/load_scene.sh -a /path/to/robot.urdf  # 直接指定 URDF/USD
-```
-
-> **当前默认机器人是 `v3_ctag2f120_cameras`**（带 7 路相机的 USD 资产包，约 291MB，首次挂载需等待加载收敛）。`robot.presets` 里另有 `humanoid_upper_body_v3_ctag2f120`（无相机版）。**换机器人改 config.json**：`robot.name` 切默认，`robot.presets` 加预设；或调用时传 `{"name": "..."}` / `{"usd_path": "..."}` 临时指定。
->
-> 预设路径是**绝对路径、随部署机器不同**，换机器要改 `config.json` 的 `robot.presets`。
-
-### 停止服务
-
-前台 `Ctrl+C` 即优雅退出（自动销毁 ROS2 节点并关闭 SimulationApp）。异常退出后的残留进程：
-
-```bash
-pkill -f "[r]outeManager.*main.py"   # 方括号写法防止误杀 pkill 自身
-```
-
-### 常见问题
-
-| 现象 | 处理 |
+| 组件 | 要求 |
 |---|---|
-| `ModuleNotFoundError: isaacsim` | run.sh 没找到 Isaac Python，用 `ISAAC_PYTHON` 显式指定 |
-| `setup_ros2_bridge` 报"未初始化" | **预期行为** —— python3.11/3.10 冲突，改用 `scripts/ros2_relay.py` |
-| `ros2_relay.py` 报 rclpy 导入失败 | 中继要跑在系统 `python3`(3.10) 上，不是 isaacsim5.1 |
-| 物理/画面卡成 10Hz | 默认已按 `render.interval=5` 降频渲染；需要更高画面用 `set_render_interval`，或启动前设 `ROUTE_MANAGER_RENDER_INTERVAL=1` |
-| VR 画面仍低帧率 | VR 会按 `teleop.vr_frame_interval` 提交画面；默认 2 个物理步一帧，并把 `head_zed_x` 降到 960×600 以降低 GPU 压力 |
-| 静态相机抓图/VR 黑屏 | `load_robot` 会自动注册 `/World/cams/*`；默认只初始化 `head_zed_x` 渲染管线，其余相机保留为待启用对象 |
-| 头显画面左右转反 | 调 `config.json` 的 `teleop.head_yaw_sign`：`1` 表示与头显 yaw 同号，`-1` 表示取反；当前机器人实测为 `1` |
-| 启动日志有 `[Error] [py stderr]` | Kit 转发 uvicorn 的 INFO 日志，**不是错误** |
-| 启动日志有 `node_STL_BINARY_` 警告 | 渲染端良性噪音 |
-| 抓图返回空/黑图 | 刚启动渲染未收敛，稍后重试；确认场景里有光源（`load_scene` 默认地平面+材质） |
-| 启动卡在加载 | 大 URDF/mesh（数百 MB）首次转换需数分钟，看日志是否在持续输出 |
+| 仿真运行时 | Isaac Sim **6.2**，本机Python 3.12 |
+| 批量环境 | 与6.2配套的Isaac Lab **3.0** |
+| 服务与工具 | fastapi、uvicorn；抓图需opencv，运动学工具需NumPy/SciPy |
+| 可选能力 | ROS2、Pico/XRoboToolkit、SimPeople、SimScene及其对应资产/SDK |
+| 资产 | 按部署机器准备自己的机器人、场景和机构；[资产管理](assets/README.md) |
 
-## API 一览
+本机运行时是`/home/jy/micromamba/envs/isaacsim6.0/bin/python`。目录名沿用旧名，安装内容已升级为6.2；不要切回已删除的5.1环境。其它机器按NVIDIA对应版本安装并设置`ISAAC_PYTHON`，不要用通用`pip install -U`覆盖Isaac配套依赖。
 
-| 接口 | 说明 |
+## 快速开始
+
+### 1. 配置本机资产
+
+新部署可从`config.example.json`建立`config.json`，替换`robot.presets`中的URDF/USD路径，并确认地面高度、实际关节命名、夹爪与相机配置。已有部署保留自己的`config.json`。
+
+当前本机默认预设为`v3_ctag2f120_rm65`。旧七轴、六轴整机和单臂验证模型有不同运动学与姿态配置，加载前先核对模型身份。大型模型、CAD、生成USD和数据集不随源码打包，需要自己的资产或按来源清单恢复。
+
+### 2. 启动HTTP仿真服务
+
+```bash
+./scripts/run.sh                         # GUI
+HEADLESS=1 ./scripts/run.sh              # RouteManager无头模式
+ISAAC_PYTHON=/path/to/isaac/python ./scripts/run.sh
+```
+
+`run.sh`隔离ROS Humble污染并前置Isaac自带ROS2库，首次加载可能需1～3分钟。RouteManager的`HEADLESS=1`与Isaac Lab启动方式不同：Lab 3.0需清除`DISPLAY`，其启动器不使用`--headless`。
+
+### 3. 检查并加载机器人
+
+```bash
+curl -s http://127.0.0.1:18765/health       # IDLE表示就绪
+./scripts/load_scene.sh                  # 地面 + config默认机器人
+./scripts/load_scene.sh -n v3_ctag2f120_rm65_l2
+./scripts/load_scene.sh -a /path/to/robot.urdf
+
+curl -s -X POST http://127.0.0.1:18765/execute \
+  -H 'Content-Type: application/json' -d '{"action":"get_joint_names"}'
+```
+
+同一会话只加载一次机器人，已有机器人时先读取状态。静态相机默认不自动注册，需要图像时再按任务启用。`bringup.sh`是旧VR演示流程，会重启服务并显式加载相机，不作为一般任务的默认入口。
+
+## 任务与采集入口
+
+### 桌面工位与可达性
+
+```bash
+python3 scripts/setup_cabinet_actions.py  # 已有工位重开面板；空服务按本机资产搭建
+python3 scripts/valve_operation.py --help
+python3 scripts/valve_operation.py capture --output outputs/valve/new_capture
+python3 scripts/valve_operation.py plan --snapshot outputs/valve/new_capture/snapshot.json \
+  --output outputs/valve/new_plan
+```
+
+离线plan使用本次真实snapshot，执行run前保留完整预检；工位、模型和末端几何须与现场匹配。参数和验收步骤见[阀门手轮操作](docs/阀门手轮操作.md)、[四轮八驱控制](docs/四轮八驱底盘控制.md)。
+
+### Isaac Lab并行采集
+
+```bash
+./scripts/collect_l3_isaaclab.sh --num-envs 4 --episodes 2 \
+  --tasks all --output outputs/l3_dataset/new_batch
+./scripts/collect_l3_isaaclab.sh --num-envs 2 --episodes 1 --tasks button --rgb \
+  --output outputs/l3_dataset/new_rgb_batch
+
+/path/to/isaac/python scripts/validate_l3_dataset.py \
+  outputs/l3_dataset/new_batch --require-all-tasks
+```
+
+批采使用独立Isaac Lab进程，不接管桌面RouteManager。每批新建输出目录，保存任务/资产来源、成功/失败与中断标记；`STOP`支持合作停止。240Hz控制子步与30Hz保存、RGB时间戳及字段详见[数据契约](docs/IsaacLab电力柜批量采集.md)。
+
+### 资源集成
+
+| 集成 | 在本项目中的作用与边界 |
 |---|---|
-| `POST /execute` | 执行 action，参数自动与 `config.json` 中的默认值合并 |
-| `POST /python` | 在仿真主线程执行任意 Python（调试用，可访问 `executor`） |
-| `GET /health` | 服务 / 任务状态查询 |
+| ROS2 | Isaac 6.2自带rclpy的进程内契约为优先路径；独立py3.10中继作兜底，两者不同时开 |
+| Pico / XRoboToolkit | 交互式遥操作与后续示教入口，先验证真实输入，再验证映射和末端反馈 |
+| SimPeople | 附着既有场景的原生人物活动；不以根平移/另写骨骼伪造行走 |
+| SimScene | 资产发现、缓存、测量、保存方案和静态视觉层附着；当前适配不启用其独立仿真worker |
 
-### Action 列表
+按[集成文档](docs/README.md#资源与外部集成)分别安装。人物/资产工具可沿用当前会话；Isaac Lab批采明确使用独立批处理进程。
 
-| Action | 说明 | 主要参数 |
-|---|---|---|
-| `load_scene` | 加载场景 USD / 默认地平面 | `usd_path`, `prim_path` |
-| `load_robot` | 加载 USD 机器人资产并注册 Articulation（推荐；支持 config 预设库按名切换） | `name`, `usd_path`, `prim_path` |
-| `load_urdf` | URDF→USD 导入并注册 Articulation | `urdf_path`, `prim_path`, `fix_base`, `merge_fixed_joints` |
-| `get_joint_names` | 列出导入后的关节 | — |
-| `set_joint_positions` | 直接设关节位置（物理仿真） | `positions`, `joint_names` |
-| `get_joint_positions` | 读取关节位置 | — |
-| `set_home_pose` | 设置基础姿态（默认写回 config.json 的 `home_pose`，重启仍生效） | `pose`（`{"关节名": rad}`）, `save` |
-| `add_camera` | 创建相机传感器（`attach_to` 可挂到 link 上随动） | `prim_path`, `attach_to`, `name`, `position`, `rotation_euler`, `resolution`, `focal_length`, `intrinsics` |
-| `get_camera_image` | 抓图（返回 base64 JPEG） | `prim_path` |
-| `move_camera` | 移动相机（挂载相机按本地坐标） | `prim_path`, `position`, `rotation_euler` |
-| `send_joint_command` | 下发关节目标到仿真（非阻塞） | `positions`, `duration`（>0 时平滑插值，主循环逐帧推进）, `joint_names`（**只下发这些关节**，其余沿用当前指令目标） |
-| `set_gripper_position` | 夹爪指令，**睿尔曼 rm_driver 语义** | `side`（left/right/both）, `position`（1~1000，1000=全开）；与真机 `{ns}/set_gripper_position_cmd` 同参 |
-| `get_gripper_position` | 夹爪开口回读（角度/比例/rm 单位） | `side` |
-| `set_base_velocity` | 底盘速度指令（skid-steer 四轮） | `vx`（m/s）, `wz`（rad/s）；需 ≥10Hz 持续发送，超时自动刹停 |
-| `get_joint_states` | 读取指令/反馈状态 | — |
-| `start_vr_teleop` | 启动 Pico VR 遥操作 | `rate_hz`, `workspace_scale`, `max_step`, `deadzone`, `grip_open`（默认取 config.json `teleop`） |
-| `stop_vr_teleop` | 停止 VR 遥操作 | — |
-| `vr_teleop_status` | VR 遥操作状态（`running`/`frames`/`last_error`） | — |
-| `setup_ros2_bridge` | 创建**进程内** ROS2 闭环。⚠️ isaacsim5.1 是 python3.11、Humble rclpy 是 3.10，**此接口在本项目环境不可用**，请改用 `scripts/ros2_relay.py` | `joint_names`, `command_topic`, `state_topic`, `publish_rate` |
+## 仓库结构与验证
 
-## 使用示例
-
-```bash
-# 加载默认机器人（config.json 的 robot.name 决定加载谁，可不传 parameters）
-curl -X POST http://127.0.0.1:18765/execute -H 'Content-Type: application/json' \
-  -d '{"action": "load_robot"}'
-
-# 按预设名切换（robot.presets 里配置过的机器人）
-curl -X POST http://127.0.0.1:18765/execute -H 'Content-Type: application/json' \
-  -d '{"action": "load_robot", "parameters": {"name": "humanoid_upper_body_v3_ctag2f120"}}'
-
-# 或临时指定路径（不入预设库）
-curl -X POST http://127.0.0.1:18765/execute -H 'Content-Type: application/json' \
-  -d '{"action": "load_robot", "parameters": {"usd_path": "assets/robot.usd", "prim_path": "/humanoid"}}'
-
-# 或从 URDF 导入（注意：package:// 形式的 mesh 引用导入器不解析，
-# 建议优先用转换好的 USD 资产，见下方「URDF 导入前修改」）
-curl -X POST http://127.0.0.1:18765/execute -H 'Content-Type: application/json' \
-  -d '{"action": "load_urdf", "parameters": {"urdf_path": "assets/humanoid.urdf"}}'
-
-# 在头部挂一个相机（世界坐标定位）
-curl -X POST http://127.0.0.1:18765/execute -H 'Content-Type: application/json' \
-  -d '{"action": "add_camera", "parameters": {"prim_path": "/humanoid/head_camera", "position": [0, 0, 1.6]}}'
-
-# 或挂到 link 上随机器人运动（本地坐标定位；需 merge_fixed_joints=false）
-curl -X POST http://127.0.0.1:18765/execute -H 'Content-Type: application/json' \
-  -d '{"action": "add_camera", "parameters": {"prim_path": "/humanoid/head_link/head_camera", "attach_to": "/humanoid/head_link", "position": [0, 0, 0.1]}}'
-
-# 抓图（返回 data.image_base64）
-curl -X POST http://127.0.0.1:18765/execute -H 'Content-Type: application/json' \
-  -d '{"action": "get_camera_image", "parameters": {"prim_path": "/humanoid/head_camera"}}'
-
-# ROS2 闭环：另开一个终端跑中继（用系统 python3.10，不是 isaacsim5.1），
-# 之后外部节点发 /humanoid/joint_command 即可驱动机器人，
-# 实际关节状态以 50Hz 发布到 /humanoid/joint_states
-python3 scripts/ros2_relay.py
-
-# HTTP 直发关节目标（duration > 0 平滑插值，非阻塞）
-curl -X POST http://127.0.0.1:18765/execute -H 'Content-Type: application/json' \
-  -d '{"action": "send_joint_command", "parameters": {"positions": [0,0,0,0,0,0], "duration": 2.0}}'
-
-# 读取指令/反馈
-curl -X POST http://127.0.0.1:18765/execute -H 'Content-Type: application/json' \
-  -d '{"action": "get_joint_states"}'
-
-# 在线调试：直接在仿真主线程执行代码
-curl -X POST http://127.0.0.1:18765/python -H 'Content-Type: application/json' \
-  -d '{"code": "import omni.usd; print(omni.usd.get_context().get_stage())"}'
-```
-
-## ROS2 闭环
-
-**为什么不用进程内的 `setup_ros2_bridge`**：isaacsim5.1 环境是 Python 3.11，
-而 ROS Humble 的 rclpy C 扩展只编了 python3.10 版本，仿真进程里 `import rclpy`
-直接失败（`No module named 'rclpy._rclpy_pybind11'`）。该 action 会走降级分支
-报「未初始化」，不影响仿真其余功能。
-
-**实际通路**是 `scripts/ros2_relay.py` —— 用**系统 python3.10** 跑 rclpy，
-把 ROS2 话题与 HTTP 接口互转：
-
-```
-/humanoid/joint_command (JointState) → POST /execute send_joint_command
-轮询 get_joint_states → /humanoid/joint_states (JointState)
+```text
+main.py / sim_env.py       启动与Isaac扩展
+robot_manager.py          机器人与场景action执行器
+standalone_server.py       HTTP任务队列与主线程分发
+arm_kin.py 等              FK、规划与夹爪模型
+ros2_bridge/               ROS2契约和相机图
+scripts/                   运行、任务、资产构建、诊断与原生验收入口
+tests/                     离线unittest回归
+assets/                    小型来源文件、清单、参数与获取说明
+docs/                      人类操作与数据契约文档
+memory/                    项目实测结论与失败记录索引
+outputs/                   本机运行、采集与证据；不上传
 ```
 
 ```bash
-python3 scripts/ros2_relay.py          # 默认 http://127.0.0.1:18765
-# 环境变量：ROUTE_MANAGER_URL / RELAY_RATE（默认 50Hz）
+# 离线回归，不启动Kit；部分模型回归需要本机URDF/标定输入
+env -u PYTHONPATH -u LD_LIBRARY_PATH /path/to/isaac/python \
+  -m unittest discover -s tests -p 'test_*.py'
+python3 standalone_server.py --demo      # 假执行器，仅验证HTTP框架
 ```
 
-对上层 ROS2 节点而言接口不变，仿真/真机仍可切换。附带的好处：
-`send_joint_command` 走 HTTP 直连路径、不回发 command_topic，不会有回声。
+离线回归、仿真反馈、完整任务与真机验证分别验收；发布训练数据前检查记录的执行模式与失败标记。[目录指南](docs/项目目录与文件管理.md)说明代码和产物管理，Agent约束统一在[AGENTS.md](AGENTS.md)，操作说明从[文档导航](docs/README.md)进入。
 
-## 底盘控制
+## 下一步：完善Real → Sim → Real
 
-四轮 skid-steer 由 `set_base_velocity` 速度控制**专管**；关节位置指令
-（ROS/HTTP）里的轮子分量会被忽略，避免两路控制打架。
+1. 建立自研机器人/工厂资产的版本、坐标和实物参数标定闭环。
+2. 把已验证接触任务接入统一任务契约与Isaac Lab人形并行执行器。
+3. 扩展同步传感器数据、场景/参数随机化、任务覆盖与数据质量审计。
+4. 在固定验收条件下训练、评估与回放策略，再接真机执行和反馈校正。
 
-```bash
-# 前进 0.2 m/s（wz=0）。需以 >=10Hz 持续发送，超时 0.5s 自动刹停
-curl -X POST http://127.0.0.1:18765/execute -H 'Content-Type: application/json' \
-  -d '{"action": "set_base_velocity", "parameters": {"vx": 0.2, "wz": 0.0}}'
-
-# 终端键盘遥控（WASD，纯标准库无需装包；空格急停）
-python3 scripts/wasd_teleop.py
-python3 scripts/wasd_teleop.py --speed 0.3 --turn 1.0
-```
-
-轮径 / 轮距 / 限速 / 超时 / 左右轮符号在 `config.json` 的 `base_teleop`。
-**实测若前进变后退或转向反向，改 `left_sign` / `right_sign`**（URDF 左右轮轴镜像差异）。
-
-## VR 遥操作（Pico 4 Ultra）
-
-控制器位姿 → 手臂关节，扳机 → 夹爪开合，机器人相机画面流到头显。
-
-```bash
-./scripts/teleop/setup_isaacteleop.sh     # 一次性：克隆环境装 isaaccapture
-sudo ufw allow 47998/udp && sudo ufw allow 49100/tcp && sudo ufw allow 48322/tcp
-ISAAC_PYTHON="micromamba run -n isaacsim5.1_teleop python" ./scripts/run.sh
-# 加载机器人 → start_vr_teleop → Pico 浏览器打开客户端页，Server Address 填电脑 IP
-```
-
-`start_vr_teleop` 参数默认取 `config.json` 的 `teleop` 节（`workspace_scale` /
-`max_step` / `deadzone` / `grip_open` / `rate_hz`），调用传参可覆盖。
-手臂关节留空则按 `arm_*` 名称自动识别，识别不到就手工填 `teleop.arm_joints`。
-
-完整步骤、Pico 端配置、故障排查见 **[scripts/teleop/README.md](scripts/teleop/README.md)**。
-要点：头显里要有画面必须先给机器人加相机（`add_camera` 挂 `head_link`）——
-CloudXR 流的是 XR 应用提交的图层，不提交就是黑屏。
-
-## URDF 导入前修改
-
-> **提示**：Isaac 的 URDF 导入器不解析 `package://` 形式的 mesh 引用（ROS 包路径）。
-> 手头只有这种 URDF 时，要么把 mesh 路径批量改写为绝对路径再导入，要么直接用
-> 转换好的 USD 资产走 `load_robot`（本项目默认机器人即为此格式）。
-
-`urdf_tools/editor.py` 提供纯 XML 级别的 URDF 修改（不依赖 Isaac Sim，导入前使用）：
-
-```python
-from urdf_tools.editor import UrdfEditor
-
-ed = UrdfEditor("assets/humanoid.urdf")
-print(ed.list_joints())
-ed.set_joint_limit("joint1", lower=-2.6, upper=2.6, effort=100)
-ed.set_joint_dynamics("joint1", damping=0.5)
-ed.save("assets/humanoid_modified.urdf")
-```
-
-## 项目结构
-
-```
-RouteManager/
-├── main.py                  # 入口：SimEnv → RobotManager → IsaacTaskServer
-├── standalone_server.py     # HTTP 任务服务器（双线程：HTTP 收请求、主线程跑仿真）
-├── sim_env.py               # SimulationApp 启动 + ros2.bridge / DebugDraw / Omnigraph 插件启用
-├── robot_manager.py         # 所有 HTTP action 的实现（执行器）
-├── isaac_teleop.py          # Pico VR 遥操作会话管理（VRTeleopManager）
-├── isaac_add_cameras.py     # 独立脚本：按 URDF 外参批量建 7 路相机（Script Editor 里跑，不走 HTTP）
-├── urdf_tools/
-│   └── editor.py            # URDF 纯 XML 修改工具（导入前：限位/动力学/origin）
-├── ros2_bridge/
-│   └── controller.py        # 进程内 ROS2 关节控制节点（⚠️ 本项目 python 版本冲突，见「ROS2 闭环」）
-├── config.json              # action 默认参数表 + 机器人预设库 + home_pose/teleop/base_teleop
-├── assets/                  # 存放 URDF / USD 资产
-├── humanoid_upper_body_v3/  # 随机型 URDF 包（urdf + meshes）
-├── memory/                  # 项目记忆：MEMORY.md 是索引，实测细节/踩坑记这里
-└── scripts/
-    ├── run.sh               # 启动脚本（自动 source ROS2 环境 + isaacsim5.1）
-    ├── load_scene.sh        # 一键加载场景（地面 + 机器人，支持预设名/资产路径）
-    ├── ros2_relay.py        # ROS2 ↔ HTTP 中继（系统 python3.10 跑，见「ROS2 闭环」）
-    ├── wasd_teleop.py       # 终端 WASD 键盘遥控底盘
-    └── teleop/              # VR 遥操作安装脚本 + 详细文档
-```
-
-## 注意事项
-
-1. **初始化顺序**：`SimulationApp` 必须最先创建（`main.py` 已保证）；不要在 `robot_manager.py` 顶层 import isaacsim/omni/pxr。
-2. **action 命名**：`RobotManager` 上的公开方法自动成为 HTTP action；`config.json` 的 key 为 action 去掉 `load_` 前缀。
-3. **并发限制**：同一时刻只允许一个任务，忙时返回 409。
-4. **Python 版本**：isaacsim5.1 是 **python3.11**，ROS Humble 的 rclpy 是 **python3.10** —— 两者不能互相 import。所以服务进程内跑不了 rclpy，ROS2 一律走中继脚本（见「ROS2 闭环」）。`run.sh` 会 source ROS2 环境，但对仿真进程无实际作用。
-5. **Isaac 版本兼容**：`parse_urdf` 返回值因 Isaac 版本而异，`load_urdf` 已做兼容处理；如遇导入报错，检查 `isaacsim.asset.importer.urdf` 的版本签名。相机 `set_focal_length()` 收的是**米**（不是 mm），传错会差 1000 倍。
-6. **渲染降频**：主循环默认每 5 个物理步渲染一次（`config.json` 的 `render.interval`），避免 7 路相机把仿真拖到 10Hz。`ROUTE_MANAGER_RENDER_INTERVAL` 可在启动时覆盖；运行中可用 `set_render_interval` 调整。显式调用 `executor.step(render=True)` 仍会强制渲染。
-7. **相机抓图时机**：服务主循环自动渲染，正常情况下 `get_camera_image` 直接可用；刚启动或刚把 interval 调大时可能取到上一帧，稍后重试即可。
-8. **ROS2 闭环**：`setup_ros2_bridge`（进程内）在本项目环境不可用；用 `scripts/ros2_relay.py`，外部节点发布到 `command_topic` 的 `JointState` 由仿真主线程施加到机器人，仿真以 `publish_rate`（默认 50Hz）把实际关节状态发到 `state_topic`。`send_joint_command` 走 HTTP 直连路径（不进 ROS hop），同样驱动仿真且不回发话题。
-9. **挂载相机**：`add_camera` 的 `attach_to` 要求对应 link prim 存在 —— URDF 导入保持 `merge_fixed_joints: false`（config.json 默认值）。**多相机场景必须显式传 `name`**：默认名取 `prim_path` 末段，多个相机都叫 `camera` 会撞场景注册表。
-10. **端口**：默认 **18765**，用 `ROUTE_MANAGER_PORT` 覆盖。启动前 `main.py` 会自动清理占用该端口的本项目残留实例（非本项目进程则报错退出）。
-11. **底盘与关节指令互斥**：四轮由 `set_base_velocity` 速度控制专管，关节位置指令里的轮子分量被忽略；VR 遥操作和底盘控制可同时使用，手臂与底盘互不干扰。
-12. **调试技巧**：改完 `robot_manager.py` 不想重启丢场景，可热替换：
-    ```
-    POST /python  {"code": "import importlib, robot_manager; importlib.reload(robot_manager); executor.__class__ = robot_manager.RobotManager"}
-    ```
-    `/python` 传多行代码容易被 JSON 转义搞炸，用 python urllib 驱动更稳。
-
-## License
-
-MIT
+代码沿用[MIT许可证](LICENSE)。第三方工具与机器人/工厂资产遵循各自许可证，来源和分发范围见[资产说明](assets/README.md)。

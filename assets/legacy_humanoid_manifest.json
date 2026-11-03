@@ -1,0 +1,745 @@
+{
+  "source_commit": "d4e96af12be4c287a31e5bf85185f91a0ecb3803",
+  "source_root": "humanoid_upper_body_v3",
+  "scope": "历史已跟踪部分，不含原本未跟踪的私有大文件/生成USD",
+  "files": [
+    {
+      "path": "humanoid_upper_body_v3/README.md",
+      "bytes": 15631,
+      "sha256": "29344c33ad10ede4a2dc8e3c091dfa23a98177b4a298025b2f2d8f2697634c42",
+      "executable": false
+    },
+    {
+      "path": "humanoid_upper_body_v3/collision_shapes.json",
+      "bytes": 10637,
+      "sha256": "0f3893d2c538e2724925b94258d4bcc8d4642f908492b547a435eb078e367907",
+      "executable": false
+    },
+    {
+      "path": "humanoid_upper_body_v3/config/joint_names.yaml",
+      "bytes": 8873,
+      "sha256": "abb0142c5acb4bbc3142dabea407c62cd5015e86997a02ecf44605f0c5926665",
+      "executable": false
+    },
+    {
+      "path": "humanoid_upper_body_v3/launch/display.launch",
+      "bytes": 929,
+      "sha256": "ebacef2635fef425b6cb5795d4e34b51856efba2a0e74fdf3b47bbd7340545ea",
+      "executable": false
+    },
+    {
+      "path": "humanoid_upper_body_v3/launch/urdf.rviz",
+      "bytes": 1036,
+      "sha256": "f1250297080494d89362dfab5d830d082e4824226b8efb6f3a1ed1d6d09bde70",
+      "executable": false
+    },
+    {
+      "path": "humanoid_upper_body_v3/meshes/collision/TF_0.STL",
+      "bytes": 6484,
+      "sha256": "3a56fe45a0f64183b4f24d9312178f971b2900070632a28e358dd5c819ffb907",
+      "executable": false
+    },
+    {
+      "path": "humanoid_upper_body_v3/meshes/collision/TF_1.STL",
+      "bytes": 6484,
+      "sha256": "7c5cfb64fe2c42522af4807e46b925ce9927e5a8d633445d6b49aa216192acf9",
+      "executable": false
+    },
+    {
+      "path": "humanoid_upper_body_v3/meshes/collision/TF_2.STL",
+      "bytes": 6484,
+      "sha256": "b4f977fc43d0298e093b920540781757baa001c2bf0092594b0ca0c4ac357fdc",
+      "executable": false
+    },
+    {
+      "path": "humanoid_upper_body_v3/meshes/collision/TF_3.STL",
+      "bytes": 6484,
+      "sha256": "6cdc71a0e827f76ebd1badf791a7441c094f68541040841966f5076a7d3120ed",
+      "executable": false
+    },
+    {
+      "path": "humanoid_upper_body_v3/meshes/collision/TZ.STL",
+      "bytes": 6484,
+      "sha256": "b2827585f2eb97aab6b7a8b271679e87eaf83a75cd4bbb2732469b308cd7ce01",
+      "executable": false
+    },
+    {
+      "path": "humanoid_upper_body_v3/meshes/collision/Y1.STL",
+      "bytes": 6484,
+      "sha256": "1d4fa541d5deab9169110c951e9a88d946a12253987e76441bd70871b1d727db",
+      "executable": false
+    },
+    {
+      "path": "humanoid_upper_body_v3/meshes/collision/Y2.STL",
+      "bytes": 6484,
+      "sha256": "9e618f013d10a7a75b092b6a9f2f6a7b90878f61df2f80baa573d946e7982d2b",
+      "executable": false
+    },
+    {
+      "path": "humanoid_upper_body_v3/meshes/collision/Y3.STL",
+      "bytes": 6484,
+      "sha256": "2e8832c33aeb030bf6434bc9d5a3655948c5bfa3deb0ede208cea2ae93286f2c",
+      "executable": false
+    },
+    {
+      "path": "humanoid_upper_body_v3/meshes/collision/Y4.STL",
+      "bytes": 6484,
+      "sha256": "0a9214288a03d74ff008c2743fa8425e6cee8e868a609e4166788f4be533ca31",
+      "executable": false
+    },
+    {
+      "path": "humanoid_upper_body_v3/meshes/collision/Y5.STL",
+      "bytes": 6484,
+      "sha256": "995216ddeacf3f2eac771df48d49427b4c7c51f372dcdaf4880a606fc0de15fc",
+      "executable": false
+    },
+    {
+      "path": "humanoid_upper_body_v3/meshes/collision/Y6.STL",
+      "bytes": 6484,
+      "sha256": "3c2608356ea82b6c1e019aeb85b22c0a609369172e22351f14896c0414ef6f34",
+      "executable": false
+    },
+    {
+      "path": "humanoid_upper_body_v3/meshes/collision/Y7_0.STL",
+      "bytes": 6484,
+      "sha256": "c9cd08b741f63ee710d35a01f974d79c96550c4a3489a113deaf871a01875618",
+      "executable": false
+    },
+    {
+      "path": "humanoid_upper_body_v3/meshes/collision/Y7_1.STL",
+      "bytes": 6484,
+      "sha256": "05065b911794dc2567558ed6280e01a4ad7167e6a81072b320b31dbe9b532161",
+      "executable": false
+    },
+    {
+      "path": "humanoid_upper_body_v3/meshes/collision/Y7_2.STL",
+      "bytes": 6484,
+      "sha256": "e9846f64cfcd342cfa7fdba6813f1b3d11eeff4eacc27d35c5c69d18d9b7f4f9",
+      "executable": false
+    },
+    {
+      "path": "humanoid_upper_body_v3/meshes/collision/Y7_3.STL",
+      "bytes": 6484,
+      "sha256": "d53de96d3f8b21c7b571e08621c99e3c0b844220f7daaaed8304af74b4a4e692",
+      "executable": false
+    },
+    {
+      "path": "humanoid_upper_body_v3/meshes/collision/YHY_0.STL",
+      "bytes": 6484,
+      "sha256": "f87ba1d846598028729a0ae9dd0cd25ce3f7a3547fb6ace7c59962c8e15cdf4f",
+      "executable": false
+    },
+    {
+      "path": "humanoid_upper_body_v3/meshes/collision/YHY_1.STL",
+      "bytes": 6484,
+      "sha256": "3a757ce23b3d877bbc904b3c9781730f620f301a31b8f6fb9f13f87fea0701f9",
+      "executable": false
+    },
+    {
+      "path": "humanoid_upper_body_v3/meshes/collision/YHY_2.STL",
+      "bytes": 6484,
+      "sha256": "71b19e6395c1c113124adc41f55e93f26fd80113564f20ce8fec0ac47d2e51dd",
+      "executable": false
+    },
+    {
+      "path": "humanoid_upper_body_v3/meshes/collision/YHY_3.STL",
+      "bytes": 6484,
+      "sha256": "a3729629f9c2217f92f5a45762eafb9ddd5f7b0cc981e4e014f2220b2e94f7b4",
+      "executable": false
+    },
+    {
+      "path": "humanoid_upper_body_v3/meshes/collision/YJ_0.STL",
+      "bytes": 6484,
+      "sha256": "4412d50e43aaeac6fdae9e51adb9a1a28c3db88c7d8a5f7af7115fb84edde3ad",
+      "executable": false
+    },
+    {
+      "path": "humanoid_upper_body_v3/meshes/collision/YJ_1.STL",
+      "bytes": 6484,
+      "sha256": "8ca283a9d1f97822fa5c2536f3090f3a394cfa980836622d0a9f7ed4f2c31951",
+      "executable": false
+    },
+    {
+      "path": "humanoid_upper_body_v3/meshes/collision/YJ_2.STL",
+      "bytes": 6484,
+      "sha256": "24ce312323d79ea2f45414b2ed720c5ace13d59178a9acbd82bc8c893dec82e4",
+      "executable": false
+    },
+    {
+      "path": "humanoid_upper_body_v3/meshes/collision/YJ_3.STL",
+      "bytes": 6484,
+      "sha256": "c10e2fa556fb0be4f5cd8f7732208f842205aa8f8642ca0cf0d5ae41ebd49dd0",
+      "executable": false
+    },
+    {
+      "path": "humanoid_upper_body_v3/meshes/collision/YJ_4.STL",
+      "bytes": 6484,
+      "sha256": "7d9d5da30db48e4894388b6f7960271eae68ca4b5d1e8ddc181cf73364bf13e7",
+      "executable": false
+    },
+    {
+      "path": "humanoid_upper_body_v3/meshes/collision/YJ_5.STL",
+      "bytes": 6484,
+      "sha256": "f1fc18958f24a74807f76ac9857396483d4ddc0b4164a81b14f0998ebc355655",
+      "executable": false
+    },
+    {
+      "path": "humanoid_upper_body_v3/meshes/collision/YQY_0.STL",
+      "bytes": 6484,
+      "sha256": "dd1d97764ec4aad9407af74d3cbeae55d91c69e632bc22a9eef0c9e41dfaba5e",
+      "executable": false
+    },
+    {
+      "path": "humanoid_upper_body_v3/meshes/collision/YQY_1.STL",
+      "bytes": 6484,
+      "sha256": "3a757ce23b3d877bbc904b3c9781730f620f301a31b8f6fb9f13f87fea0701f9",
+      "executable": false
+    },
+    {
+      "path": "humanoid_upper_body_v3/meshes/collision/YQY_2.STL",
+      "bytes": 6484,
+      "sha256": "71b19e6395c1c113124adc41f55e93f26fd80113564f20ce8fec0ac47d2e51dd",
+      "executable": false
+    },
+    {
+      "path": "humanoid_upper_body_v3/meshes/collision/YQY_3.STL",
+      "bytes": 6484,
+      "sha256": "4b17fbfb1b8965fa380278463cfdb95c3bdc6bd2439b1aa277ef11a3fbba66f7",
+      "executable": false
+    },
+    {
+      "path": "humanoid_upper_body_v3/meshes/collision/Z1.STL",
+      "bytes": 6484,
+      "sha256": "363f5e34202f9e45ebbf5b54d8078ccdeb78670ba4c6083cf35303d256e98419",
+      "executable": false
+    },
+    {
+      "path": "humanoid_upper_body_v3/meshes/collision/Z2.STL",
+      "bytes": 6484,
+      "sha256": "5827785ed474ea5d7d984e30900de8396536350deadf22f6ed502bce571155ed",
+      "executable": false
+    },
+    {
+      "path": "humanoid_upper_body_v3/meshes/collision/Z3.STL",
+      "bytes": 6484,
+      "sha256": "36a8dade7ec6e2cc2ba589b12566c6e1f1b80357571ec6d1b9d0aded8ab09f46",
+      "executable": false
+    },
+    {
+      "path": "humanoid_upper_body_v3/meshes/collision/Z4.STL",
+      "bytes": 6484,
+      "sha256": "611c739b151dff8238188e1801d389a6f30612d64b9294d5dc24349e5793b793",
+      "executable": false
+    },
+    {
+      "path": "humanoid_upper_body_v3/meshes/collision/Z5.STL",
+      "bytes": 6484,
+      "sha256": "3ef6992bb4cd7a1a87bcf307fa1cdf1e72ac95d5b7b97bfdf43b29ca7359e363",
+      "executable": false
+    },
+    {
+      "path": "humanoid_upper_body_v3/meshes/collision/Z6.STL",
+      "bytes": 6484,
+      "sha256": "93d7ff4e952599e136421ef7c11dba430f550fe2c17a2c6d0a0b508b56e8b4ae",
+      "executable": false
+    },
+    {
+      "path": "humanoid_upper_body_v3/meshes/collision/Z7_0.STL",
+      "bytes": 6484,
+      "sha256": "93c42ea53bff1ee10c83f9e3f8c6237e9b3bc8879d04ca43f2ec99c399f20e5c",
+      "executable": false
+    },
+    {
+      "path": "humanoid_upper_body_v3/meshes/collision/Z7_1.STL",
+      "bytes": 6484,
+      "sha256": "6449d6d48dc71e9e3afecb627e2d88e5d57477147f5119510ad718bd5808f412",
+      "executable": false
+    },
+    {
+      "path": "humanoid_upper_body_v3/meshes/collision/Z7_2.STL",
+      "bytes": 6484,
+      "sha256": "a3507d25cd32adecdee427cd3396f72109db145a17bc3646e8df61a5d9bd64b5",
+      "executable": false
+    },
+    {
+      "path": "humanoid_upper_body_v3/meshes/collision/Z7_3.STL",
+      "bytes": 6484,
+      "sha256": "c04be6a7c583c65663825169b569988fcb2609a2795c48aadbd51a2ca4e0efbb",
+      "executable": false
+    },
+    {
+      "path": "humanoid_upper_body_v3/meshes/collision/ZHY_0.STL",
+      "bytes": 6484,
+      "sha256": "9bb3cbfc09b6190b33a37862ffc257d82a3d7bcbf6c28d381d3371f0f66e7d42",
+      "executable": false
+    },
+    {
+      "path": "humanoid_upper_body_v3/meshes/collision/ZHY_1.STL",
+      "bytes": 6484,
+      "sha256": "891f34a418a464743698cf0151097b282d4ce1705fb8d469ca23633d7f2a1625",
+      "executable": false
+    },
+    {
+      "path": "humanoid_upper_body_v3/meshes/collision/ZHY_2.STL",
+      "bytes": 6484,
+      "sha256": "3f0d226ebbc6fcec4b388b3f80db601e5833ae5a4fc7a96126fecff8126c31d5",
+      "executable": false
+    },
+    {
+      "path": "humanoid_upper_body_v3/meshes/collision/ZHY_3.STL",
+      "bytes": 6484,
+      "sha256": "772bac8ff773b5180c6dcb6b24b3132d7208fcaac33e3595784c5091ac0c6c73",
+      "executable": false
+    },
+    {
+      "path": "humanoid_upper_body_v3/meshes/collision/ZJ_0.STL",
+      "bytes": 6484,
+      "sha256": "59b8cee5306c523acd5a2367196a71aeb9ee27ec584b12bfa81a370854a140ba",
+      "executable": false
+    },
+    {
+      "path": "humanoid_upper_body_v3/meshes/collision/ZJ_1.STL",
+      "bytes": 6484,
+      "sha256": "82554e2cc37930fe99c153054cee664c2b8b190a858d682aaf8527432ec5ce55",
+      "executable": false
+    },
+    {
+      "path": "humanoid_upper_body_v3/meshes/collision/ZJ_2.STL",
+      "bytes": 6484,
+      "sha256": "f418c498dae5df2135ab6d31610fdb3b1121ab1bb7f95170534a6c73e0676c33",
+      "executable": false
+    },
+    {
+      "path": "humanoid_upper_body_v3/meshes/collision/ZJ_3.STL",
+      "bytes": 6484,
+      "sha256": "5ac55d08a25b44fbc26ffdd44850d26cbd046ffd56e8081f1c8d31c7b66b48d6",
+      "executable": false
+    },
+    {
+      "path": "humanoid_upper_body_v3/meshes/collision/ZJ_4.STL",
+      "bytes": 6484,
+      "sha256": "72bf45dfaaaff73c406ee14d459e381270dc64e2e0c4fd5b6124dc452030b88c",
+      "executable": false
+    },
+    {
+      "path": "humanoid_upper_body_v3/meshes/collision/ZJ_5.STL",
+      "bytes": 6484,
+      "sha256": "7db794d048d0ace3dceaaa61f46133cb601e595b70b846fd42bfa43b5f1241e2",
+      "executable": false
+    },
+    {
+      "path": "humanoid_upper_body_v3/meshes/collision/ZQY_0.STL",
+      "bytes": 6484,
+      "sha256": "befe8fab7fe63d3317788cf9c30b99d600df338db418da63d9102b0bc8d56266",
+      "executable": false
+    },
+    {
+      "path": "humanoid_upper_body_v3/meshes/collision/ZQY_1.STL",
+      "bytes": 6484,
+      "sha256": "891f34a418a464743698cf0151097b282d4ce1705fb8d469ca23633d7f2a1625",
+      "executable": false
+    },
+    {
+      "path": "humanoid_upper_body_v3/meshes/collision/ZQY_2.STL",
+      "bytes": 6484,
+      "sha256": "3f0d226ebbc6fcec4b388b3f80db601e5833ae5a4fc7a96126fecff8126c31d5",
+      "executable": false
+    },
+    {
+      "path": "humanoid_upper_body_v3/meshes/collision/ZQY_3.STL",
+      "bytes": 6484,
+      "sha256": "5d4fcfca3c96c084920706d8ea7fbe3c079b4928520a5b503274ac062f773bbc",
+      "executable": false
+    },
+    {
+      "path": "humanoid_upper_body_v3/meshes/visual/SX_Link.STL",
+      "bytes": 35411884,
+      "sha256": "be2d9d02cfcea9e54ec8ec0489d50bf570029fac70cf6e9fc97774caac96da52",
+      "executable": false
+    },
+    {
+      "path": "humanoid_upper_body_v3/meshes/visual/TF.STL",
+      "bytes": 8614584,
+      "sha256": "b3370ab386baedc9eadd557b93f7944bef97865afbcb70f41786f75ed0f4cdb8",
+      "executable": false
+    },
+    {
+      "path": "humanoid_upper_body_v3/meshes/visual/TZ.STL",
+      "bytes": 2137584,
+      "sha256": "6f48b055f51d5ad6b4fe7d2a47706470afee04ba6e72c4f95c6f4f2d5b58257e",
+      "executable": false
+    },
+    {
+      "path": "humanoid_upper_body_v3/meshes/visual/XQ.STL",
+      "bytes": 3305184,
+      "sha256": "8e25c12131e8c9f6503930a4b23b92063483bd6d47c32d8d26a628ce5919245a",
+      "executable": false
+    },
+    {
+      "path": "humanoid_upper_body_v3/meshes/visual/Y1.STL",
+      "bytes": 375084,
+      "sha256": "85c055ed3b44a7fa1272e30b6d15bd1f846c8eab7ff7d01de5a9345e39942db6",
+      "executable": false
+    },
+    {
+      "path": "humanoid_upper_body_v3/meshes/visual/Y2.STL",
+      "bytes": 227784,
+      "sha256": "b2ea8b44e806f6a236e46595405a739a3926c8cdad9fff73438193a7a2a6cbc9",
+      "executable": false
+    },
+    {
+      "path": "humanoid_upper_body_v3/meshes/visual/Y3.STL",
+      "bytes": 213784,
+      "sha256": "991a797e7efe8653be856de9ca1c7dda751b153e3e37ce90fa931ce22de9d9dd",
+      "executable": false
+    },
+    {
+      "path": "humanoid_upper_body_v3/meshes/visual/Y4.STL",
+      "bytes": 208384,
+      "sha256": "0f0199168814ece95b730df76207f8c6c84ba81eb5ceb1d7cda5936a9bd9740c",
+      "executable": false
+    },
+    {
+      "path": "humanoid_upper_body_v3/meshes/visual/Y5.STL",
+      "bytes": 209984,
+      "sha256": "8b5983ef3a8e8165ff92624cd8ca328b972c92ab7921356cd711a767069caa93",
+      "executable": false
+    },
+    {
+      "path": "humanoid_upper_body_v3/meshes/visual/Y6.STL",
+      "bytes": 221884,
+      "sha256": "a2ef49e754a54e7f4f297fa850460fca7395cf75d641b0495d0a44754c3c3616",
+      "executable": false
+    },
+    {
+      "path": "humanoid_upper_body_v3/meshes/visual/Y7.STL",
+      "bytes": 271584,
+      "sha256": "98abf7e16c6b2792cddcf9c322054eaf9559f98de745cd3c643ee5c6cab94223",
+      "executable": false
+    },
+    {
+      "path": "humanoid_upper_body_v3/meshes/visual/YHL.STL",
+      "bytes": 876084,
+      "sha256": "3322f96d915dd79fc875b4b0b5712da918bcc165453a4b95fbeda518a334d0d7",
+      "executable": false
+    },
+    {
+      "path": "humanoid_upper_body_v3/meshes/visual/YHY.STL",
+      "bytes": 5721584,
+      "sha256": "b9f6d55c5988fc20e21cedb8bebca2c1af764eb727e219c51e81529125f8b2ff",
+      "executable": false
+    },
+    {
+      "path": "humanoid_upper_body_v3/meshes/visual/YJ.STL",
+      "bytes": 10051884,
+      "sha256": "2234418fbcf74c9558febc118c7d0ac949d48f60719f0bc161d37596d2ffe3c9",
+      "executable": false
+    },
+    {
+      "path": "humanoid_upper_body_v3/meshes/visual/YJ_wrist.STL",
+      "bytes": 4344284,
+      "sha256": "02dca79449224fdfb9dd9e30ea34330b62887f9ce27cff8fdd06726c78c45f9b",
+      "executable": false
+    },
+    {
+      "path": "humanoid_upper_body_v3/meshes/visual/YQL.STL",
+      "bytes": 876084,
+      "sha256": "4e153b0969977ab0f942dbc0710ff539d52ed10f602741deea02871d2630614b",
+      "executable": false
+    },
+    {
+      "path": "humanoid_upper_body_v3/meshes/visual/YQY.STL",
+      "bytes": 5721584,
+      "sha256": "31884abea313cf9ba1458c7cd8c79528cbd6f42e81b358933b46482690e7a06b",
+      "executable": false
+    },
+    {
+      "path": "humanoid_upper_body_v3/meshes/visual/Z1.STL",
+      "bytes": 375084,
+      "sha256": "a1e33401942f33796279d86224d9e4c869136f544c6afd716d72bbda5ce7780e",
+      "executable": false
+    },
+    {
+      "path": "humanoid_upper_body_v3/meshes/visual/Z2.STL",
+      "bytes": 227784,
+      "sha256": "df750e3c1a2e908daf9600c40aca83e98093fb3e98b57b53f13b92f11faec031",
+      "executable": false
+    },
+    {
+      "path": "humanoid_upper_body_v3/meshes/visual/Z3.STL",
+      "bytes": 213784,
+      "sha256": "e2ba6ba831a2d11e244670fd8e88fe0362cf9774f67d888dc7ef6ff5e7598ebb",
+      "executable": false
+    },
+    {
+      "path": "humanoid_upper_body_v3/meshes/visual/Z4.STL",
+      "bytes": 208384,
+      "sha256": "323632b1d12501057149602f7043dd74b67f3ef10c90485720f38f0092b07178",
+      "executable": false
+    },
+    {
+      "path": "humanoid_upper_body_v3/meshes/visual/Z5.STL",
+      "bytes": 209984,
+      "sha256": "5e46c8c4ec8948154d525d623aa63ed1a5dbb22e486be956ca94fe770aaae02e",
+      "executable": false
+    },
+    {
+      "path": "humanoid_upper_body_v3/meshes/visual/Z6.STL",
+      "bytes": 221884,
+      "sha256": "c12543ede8fbbf6d6e5638dd65bdfcf75e8fe7d9991768a3e78665e4ec3f0166",
+      "executable": false
+    },
+    {
+      "path": "humanoid_upper_body_v3/meshes/visual/Z7.STL",
+      "bytes": 271584,
+      "sha256": "9fb7e3c792a4ebdf653cfdad43ced4cc14c2a9421595174feefe312844aaf82e",
+      "executable": false
+    },
+    {
+      "path": "humanoid_upper_body_v3/meshes/visual/ZHL.STL",
+      "bytes": 876084,
+      "sha256": "de81a23484f8b980045c72f55333a2248b68572fdc34b5528eddaea9c8657a75",
+      "executable": false
+    },
+    {
+      "path": "humanoid_upper_body_v3/meshes/visual/ZHY.STL",
+      "bytes": 5721584,
+      "sha256": "df61e9b9abeae898f0b4a9fc7aed1f36b13b58af4b4366b336e67f09214fea6e",
+      "executable": false
+    },
+    {
+      "path": "humanoid_upper_body_v3/meshes/visual/ZJ.STL",
+      "bytes": 10051884,
+      "sha256": "5b33b9b92e134b8609d8b4ca656e0c908316358a3f4f2167784318b30a47e55c",
+      "executable": false
+    },
+    {
+      "path": "humanoid_upper_body_v3/meshes/visual/ZJ_wrist.STL",
+      "bytes": 4344284,
+      "sha256": "161b6347c30913e56cfb6e8a5615a80966a1b288147453fa6769cb2e09156c40",
+      "executable": false
+    },
+    {
+      "path": "humanoid_upper_body_v3/meshes/visual/ZQL.STL",
+      "bytes": 876084,
+      "sha256": "90a69c332bd97bef430a2ee073bc8969b670ededee7e5e2a07a69cab62fed5b3",
+      "executable": false
+    },
+    {
+      "path": "humanoid_upper_body_v3/meshes/visual/ZQY.STL",
+      "bytes": 5721584,
+      "sha256": "1fdd46af3af174ef5f1e7e238030ce22678fc595825d84cf7b148ee889de9b44",
+      "executable": false
+    },
+    {
+      "path": "humanoid_upper_body_v3/meshes/visual/ctag2f120_L1_Link.STL",
+      "bytes": 37284,
+      "sha256": "1495b6649f452b80641cc23b5bb202450c4ab948a41a31e343dc37e4abacad5b",
+      "executable": false
+    },
+    {
+      "path": "humanoid_upper_body_v3/meshes/visual/ctag2f120_L2_Link.STL",
+      "bytes": 34684,
+      "sha256": "3743ba596e39ff4f3fce405d6e18bbfdae370a4f4f9493f279d60ed240c70957",
+      "executable": false
+    },
+    {
+      "path": "humanoid_upper_body_v3/meshes/visual/ctag2f120_L3_Link.STL",
+      "bytes": 84084,
+      "sha256": "4a08caf9fdea6f98dc634668ba24b3cc8a040e625b214d408380f0d74ec4aca9",
+      "executable": false
+    },
+    {
+      "path": "humanoid_upper_body_v3/meshes/visual/ctag2f120_Left_Main_Link.STL",
+      "bytes": 48284,
+      "sha256": "e25fa2911dd0be1bb2c59b17a283af111d08d7bd04702b3a745dee699ee86dfa",
+      "executable": false
+    },
+    {
+      "path": "humanoid_upper_body_v3/meshes/visual/ctag2f120_Left_Pad_Link.STL",
+      "bytes": 3484,
+      "sha256": "7fc0ac54f099374d730d59059ec1328885fcb1f1c63c200fdae61ce6af288b3c",
+      "executable": false
+    },
+    {
+      "path": "humanoid_upper_body_v3/meshes/visual/ctag2f120_Left_Slip_Link.STL",
+      "bytes": 26684,
+      "sha256": "1b9f83bdaf5c518165cd5291c1782764f6904267e0b2c14582c836fbe344f0f5",
+      "executable": false
+    },
+    {
+      "path": "humanoid_upper_body_v3/meshes/visual/ctag2f120_Left_in_Link.STL",
+      "bytes": 60984,
+      "sha256": "e8bef654c35a9cf9c7aea590fe53f75bf3e14b52cbded5cabf2e8f892f69051b",
+      "executable": false
+    },
+    {
+      "path": "humanoid_upper_body_v3/meshes/visual/ctag2f120_R1_Link.STL",
+      "bytes": 37284,
+      "sha256": "c616e37244a519e492c07b6ec84b4dae6dbaf05b145f3629187f101344128d36",
+      "executable": false
+    },
+    {
+      "path": "humanoid_upper_body_v3/meshes/visual/ctag2f120_R2_Link.STL",
+      "bytes": 34684,
+      "sha256": "454bfc7873bc06d9306683d11ea318f12b80f2bc408a373cec245c6ea88c31c3",
+      "executable": false
+    },
+    {
+      "path": "humanoid_upper_body_v3/meshes/visual/ctag2f120_R3_Link.STL",
+      "bytes": 84084,
+      "sha256": "56106d904e8c699334a52e801a75e789fcd1aeedf60743052f8a21da0b91ab90",
+      "executable": false
+    },
+    {
+      "path": "humanoid_upper_body_v3/meshes/visual/ctag2f120_Right_Main_Link.STL",
+      "bytes": 48284,
+      "sha256": "e5d70bcda223ea4cc19f031084725453e02e2684e254f239c3fe89e4fc313c83",
+      "executable": false
+    },
+    {
+      "path": "humanoid_upper_body_v3/meshes/visual/ctag2f120_Right_Pad_Link.STL",
+      "bytes": 3484,
+      "sha256": "b3384060d84a1ec007b0c85117a32e37eb84d7029105d3c028cb192ec3c2686b",
+      "executable": false
+    },
+    {
+      "path": "humanoid_upper_body_v3/meshes/visual/ctag2f120_Right_Slip_Link.STL",
+      "bytes": 26684,
+      "sha256": "dc8e703116a8b5fd5a7f4dddaa6f8c85458ef8fb3d6ff4e069ef68d22d89a329",
+      "executable": false
+    },
+    {
+      "path": "humanoid_upper_body_v3/meshes/visual/ctag2f120_Right_in_Link.STL",
+      "bytes": 60984,
+      "sha256": "10682b72f1ee32a9a9965e5607133a83e9955b7cef53b7710df4cd97c5c0f724",
+      "executable": false
+    },
+    {
+      "path": "humanoid_upper_body_v3/meshes/visual/ctag2f120_base_link.STL",
+      "bytes": 522284,
+      "sha256": "a1cefce91a6d937c8b2fbcb46dd532a357b368931f87584af00119c5a3ba6d69",
+      "executable": false
+    },
+    {
+      "path": "humanoid_upper_body_v3/package.xml",
+      "bytes": 775,
+      "sha256": "e70254ca64e00d2ecb7aa3b42662f6ecb2fbf849a6d2708503e0c56fa80a7af6",
+      "executable": false
+    },
+    {
+      "path": "humanoid_upper_body_v3/scripts/build_isaac_urdf.py",
+      "bytes": 19176,
+      "sha256": "41a12ec9632546a6943355e7f907d4e98eb4dd5a8ff2581d4580444c7f4d77aa",
+      "executable": false
+    },
+    {
+      "path": "humanoid_upper_body_v3/scripts/build_ros2_graph.py",
+      "bytes": 9256,
+      "sha256": "09c771c73c1c5eaaf8ee6a1b1a758df84147f79180c8aa63f6fbc4f70cc4b51f",
+      "executable": false
+    },
+    {
+      "path": "humanoid_upper_body_v3/scripts/drive_gains.json",
+      "bytes": 2193,
+      "sha256": "6478239a5fdeb2d21698921b8c17588f9264eab2a6fb9d2d18103b58cf147389",
+      "executable": false
+    },
+    {
+      "path": "humanoid_upper_body_v3/scripts/finalize_usd.py",
+      "bytes": 25142,
+      "sha256": "a4b328be8ffe894bd85aeea7c4d2343518917a19d211fea553914af312d6c025",
+      "executable": false
+    },
+    {
+      "path": "humanoid_upper_body_v3/scripts/finalize_usd_ctag.py",
+      "bytes": 32011,
+      "sha256": "ba2f700496f9cd40461df4df136f31918b735e9a309630f3343c457a6d2cbc53",
+      "executable": false
+    },
+    {
+      "path": "humanoid_upper_body_v3/scripts/gen_collision.py",
+      "bytes": 12831,
+      "sha256": "0411522794b81350c035db854ec2ee0dbd155c0932e8689a681df50e0ae938b6",
+      "executable": false
+    },
+    {
+      "path": "humanoid_upper_body_v3/scripts/gen_drive_gains.py",
+      "bytes": 5781,
+      "sha256": "3aa10da8b263ba5c048c5974c8ce24ad85b561d713cf765c9658e148356729eb",
+      "executable": false
+    },
+    {
+      "path": "humanoid_upper_body_v3/scripts/gen_joint_config.py",
+      "bytes": 4461,
+      "sha256": "140040ff484204425ded70c7d78382823c9c60f7923a6903be145497083144e7",
+      "executable": false
+    },
+    {
+      "path": "humanoid_upper_body_v3/scripts/import_to_isaac.py",
+      "bytes": 3027,
+      "sha256": "f83139ba401b5f095c4bce19dbc06268e48375d798adbefd8d9ee9c721d72fda",
+      "executable": false
+    },
+    {
+      "path": "humanoid_upper_body_v3/scripts/joint_dynamics.json",
+      "bytes": 2421,
+      "sha256": "5861547d6ed92b85a20622c75ddbba54cb7af5ab5024954ed404995f7fba182f",
+      "executable": false
+    },
+    {
+      "path": "humanoid_upper_body_v3/scripts/naming_rules.py",
+      "bytes": 5739,
+      "sha256": "cd8ec036d7394d363f1eaabda2b32ada6ec2ce74867d3bb47ec156c21121ddf9",
+      "executable": false
+    },
+    {
+      "path": "humanoid_upper_body_v3/scripts/ros2_sub_check.py",
+      "bytes": 3376,
+      "sha256": "24ea91617659283f8df7f123c972cc0c50624b29c490d9d923e2aa71b8cadf67",
+      "executable": false
+    },
+    {
+      "path": "humanoid_upper_body_v3/scripts/validate.py",
+      "bytes": 7776,
+      "sha256": "331d4e69be73d335eafcad97365499e988467f4ae57e30cce4d710739b6a058f",
+      "executable": false
+    },
+    {
+      "path": "humanoid_upper_body_v3/urdf/humanoid_upper_body_v3.urdf",
+      "bytes": 46140,
+      "sha256": "89d46cb35c63efe7a97a5a5ffa9499ece7935493a8f23f0c9fa3332e07ec1ae2",
+      "executable": false
+    },
+    {
+      "path": "humanoid_upper_body_v3/urdf/humanoid_upper_body_v3/humanoid_upper_body_v3.usd",
+      "bytes": 1472,
+      "sha256": "e3654a7b84216f819ffea6c31686baa072bf43198548f8cf6906cf516223ce26",
+      "executable": false
+    },
+    {
+      "path": "humanoid_upper_body_v3/urdf/humanoid_upper_body_v3_ctag2f120.urdf",
+      "bytes": 83429,
+      "sha256": "ab454bd595ca157e9f115b63a0286e28d4a10ee4a2d37dcc132d2064da728961",
+      "executable": false
+    },
+    {
+      "path": "humanoid_upper_body_v3/urdf/humanoid_upper_body_v3_ctag2f120/humanoid_upper_body_v3_ctag2f120.usd",
+      "bytes": 1482,
+      "sha256": "ae2e04c6fe0cdf7836ca2f32181e151b27242b0ca973598e005e41fb6bb97713",
+      "executable": false
+    },
+    {
+      "path": "humanoid_upper_body_v3/urdf/image.png",
+      "bytes": 314805,
+      "sha256": "bf84aa0a0140d1aefcc0941ad20c4c73480b8accd6e7560468842390023f7433",
+      "executable": false
+    },
+    {
+      "path": "humanoid_upper_body_v3/改动说明_2026-09-14.txt",
+      "bytes": 7327,
+      "sha256": "1f773aa167d8425bbdd7cb44bbe5d4bc0abb3b1a236ba12a2ceb974769e8ca2f",
+      "executable": false
+    }
+  ]
+}

@@ -133,7 +133,8 @@ try:
             continue
         v = lt[lnames.index(parent)]
         Mp = np.eye(4)
-        Mp[:3, :3] = _q2Rm(v[3:])
+        # get_link_transforms() 的四元数是 xyzw，_q2Rm 要 wxyz —— 重排后再喂
+        Mp[:3, :3] = _q2Rm([v[6], v[3], v[4], v[5]])
         Mp[:3, 3] = np.asarray(v[:3], float)
         # ---- 位置: 挂载连杆 mesh bbox 中心(固定关节连杆 USD 姿态恒为静止位) ----
         pw = None

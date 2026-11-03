@@ -109,6 +109,17 @@ def Xform "World"
         double3 xformOp:translate = (1.0, 0.0, 0.0)
         quatd xformOp:orient = (0.7071067811865476, 0.0, 0.0, 0.7071067811865475)
         uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
+
+        # 阀门摆到桌面上。桌子资产 piper_table.usd 把它 authored 在局部
+        # (0, 0.25, 0) —— 那是桌脚那一层，从上方被桌面挡住够不到。
+        # 桌面高 0.737m + 阀门半高 0.063m ≈ 0.80，底面正好贴桌面。
+        # 注意: /World/vla_table 会在运行时被 world.base_z 整体抬起，
+        # 这个局部坐标跟着一起抬，所以不需要把 base_z 算进来。
+        # 阀门手轮关节: /World/vla_table/valve_asset/valve_1/wheel_link/wheel_joint
+        over "valve_asset"
+        {
+            double3 xformOp:translate = (0, 0.25, 0.80)
+        }
     }
     def Cube "cube_a" (
         apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsCollisionAPI", "PhysicsMassAPI"]

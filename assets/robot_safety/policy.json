@@ -1,0 +1,327 @@
+{
+  "version": 1,
+  "robot": "RM65双六轴+CT夹爪50DOF",
+  "extra_exclusions": [
+    {
+      "bodies": [
+        "/humanoid/Geometry/base_link/lift_top_link/torso_pitch_link/left_arm_base_link/left_arm_1_link/left_arm_2_link/left_arm_3_link/left_arm_4_link/left_arm_5_link/left_arm_6_link/left_gripper_base_link",
+        "/humanoid/Geometry/base_link/lift_top_link/torso_pitch_link/left_arm_base_link/left_arm_1_link/left_arm_2_link/left_arm_3_link/left_arm_4_link/left_arm_5_link/left_arm_6_link/left_gripper_base_link/left_gripper_right_main_link/left_gripper_right_slip_link"
+      ],
+      "reason": "CT夹爪同侧闭链装配：连杆轴孔/滑块凸包重叠，保留手指与对侧指垫、环境及躯干碰撞",
+      "measured_overlap_m": 0.02464290997908967
+    },
+    {
+      "bodies": [
+        "/humanoid/Geometry/base_link/lift_top_link/torso_pitch_link/right_arm_base_link/right_arm_1_link/right_arm_2_link/right_arm_3_link/right_arm_4_link/right_arm_5_link/right_arm_6_link/right_gripper_base_link",
+        "/humanoid/Geometry/base_link/lift_top_link/torso_pitch_link/right_arm_base_link/right_arm_1_link/right_arm_2_link/right_arm_3_link/right_arm_4_link/right_arm_5_link/right_arm_6_link/right_gripper_base_link/right_gripper_right_main_link/right_gripper_right_slip_link"
+      ],
+      "reason": "CT夹爪同侧闭链装配：连杆轴孔/滑块凸包重叠，保留手指与对侧指垫、环境及躯干碰撞",
+      "measured_overlap_m": 0.024641969414431544
+    },
+    {
+      "bodies": [
+        "/humanoid/Geometry/base_link/lift_top_link/torso_pitch_link/right_arm_base_link/right_arm_1_link/right_arm_2_link/right_arm_3_link/right_arm_4_link/right_arm_5_link/right_arm_6_link/right_gripper_base_link",
+        "/humanoid/Geometry/base_link/lift_top_link/torso_pitch_link/right_arm_base_link/right_arm_1_link/right_arm_2_link/right_arm_3_link/right_arm_4_link/right_arm_5_link/right_arm_6_link/right_gripper_base_link/right_gripper_left_main_link/right_gripper_left_slip_link"
+      ],
+      "reason": "CT夹爪同侧闭链装配：连杆轴孔/滑块凸包重叠，保留手指与对侧指垫、环境及躯干碰撞",
+      "measured_overlap_m": 0.024641370854593725
+    },
+    {
+      "bodies": [
+        "/humanoid/Geometry/base_link/lift_top_link/torso_pitch_link/left_arm_base_link/left_arm_1_link/left_arm_2_link/left_arm_3_link/left_arm_4_link/left_arm_5_link/left_arm_6_link/left_gripper_base_link",
+        "/humanoid/Geometry/base_link/lift_top_link/torso_pitch_link/left_arm_base_link/left_arm_1_link/left_arm_2_link/left_arm_3_link/left_arm_4_link/left_arm_5_link/left_arm_6_link/left_gripper_base_link/left_gripper_left_main_link/left_gripper_left_slip_link"
+      ],
+      "reason": "CT夹爪同侧闭链装配：连杆轴孔/滑块凸包重叠，保留手指与对侧指垫、环境及躯干碰撞",
+      "measured_overlap_m": 0.02464106628329459
+    },
+    {
+      "bodies": [
+        "/humanoid/Geometry/base_link/lift_top_link/torso_pitch_link/right_arm_base_link/right_arm_1_link/right_arm_2_link/right_arm_3_link/right_arm_4_link/right_arm_5_link/right_arm_6_link/right_gripper_base_link/right_gripper_left_2_link",
+        "/humanoid/Geometry/base_link/lift_top_link/torso_pitch_link/right_arm_base_link/right_arm_1_link/right_arm_2_link/right_arm_3_link/right_arm_4_link/right_arm_5_link/right_arm_6_link/right_gripper_base_link/right_gripper_left_main_link"
+      ],
+      "reason": "CT夹爪同侧闭链装配：连杆轴孔/滑块凸包重叠，保留手指与对侧指垫、环境及躯干碰撞",
+      "measured_overlap_m": 0.020450468841168076
+    },
+    {
+      "bodies": [
+        "/humanoid/Geometry/base_link/lift_top_link/torso_pitch_link/right_arm_base_link/right_arm_1_link/right_arm_2_link/right_arm_3_link/right_arm_4_link/right_arm_5_link/right_arm_6_link/right_gripper_base_link/right_gripper_right_2_link",
+        "/humanoid/Geometry/base_link/lift_top_link/torso_pitch_link/right_arm_base_link/right_arm_1_link/right_arm_2_link/right_arm_3_link/right_arm_4_link/right_arm_5_link/right_arm_6_link/right_gripper_base_link/right_gripper_right_main_link"
+      ],
+      "reason": "CT夹爪同侧闭链装配：连杆轴孔/滑块凸包重叠，保留手指与对侧指垫、环境及躯干碰撞",
+      "measured_overlap_m": 0.02045038493075809
+    },
+    {
+      "bodies": [
+        "/humanoid/Geometry/base_link/lift_top_link/torso_pitch_link/left_arm_base_link/left_arm_1_link/left_arm_2_link/left_arm_3_link/left_arm_4_link/left_arm_5_link/left_arm_6_link/left_gripper_base_link/left_gripper_right_2_link",
+        "/humanoid/Geometry/base_link/lift_top_link/torso_pitch_link/left_arm_base_link/left_arm_1_link/left_arm_2_link/left_arm_3_link/left_arm_4_link/left_arm_5_link/left_arm_6_link/left_gripper_base_link/left_gripper_right_main_link"
+      ],
+      "reason": "CT夹爪同侧闭链装配：连杆轴孔/滑块凸包重叠，保留手指与对侧指垫、环境及躯干碰撞",
+      "measured_overlap_m": 0.020448481870611573
+    },
+    {
+      "bodies": [
+        "/humanoid/Geometry/base_link/lift_top_link/torso_pitch_link/left_arm_base_link/left_arm_1_link/left_arm_2_link/left_arm_3_link/left_arm_4_link/left_arm_5_link/left_arm_6_link/left_gripper_base_link/left_gripper_left_2_link",
+        "/humanoid/Geometry/base_link/lift_top_link/torso_pitch_link/left_arm_base_link/left_arm_1_link/left_arm_2_link/left_arm_3_link/left_arm_4_link/left_arm_5_link/left_arm_6_link/left_gripper_base_link/left_gripper_left_main_link"
+      ],
+      "reason": "CT夹爪同侧闭链装配：连杆轴孔/滑块凸包重叠，保留手指与对侧指垫、环境及躯干碰撞",
+      "measured_overlap_m": 0.020448415743251368
+    },
+    {
+      "bodies": [
+        "/humanoid/Geometry/base_link/lift_top_link/torso_pitch_link/right_arm_base_link/right_arm_1_link/right_arm_2_link/right_arm_3_link/right_arm_4_link/right_arm_5_link/right_arm_6_link/right_gripper_base_link/right_gripper_left_main_link/right_gripper_left_1_link",
+        "/humanoid/Geometry/base_link/lift_top_link/torso_pitch_link/right_arm_base_link/right_arm_1_link/right_arm_2_link/right_arm_3_link/right_arm_4_link/right_arm_5_link/right_arm_6_link/right_gripper_base_link/right_gripper_left_main_link/right_gripper_left_slip_link"
+      ],
+      "reason": "CT夹爪同侧闭链装配：连杆轴孔/滑块凸包重叠，保留手指与对侧指垫、环境及躯干碰撞",
+      "measured_overlap_m": 0.011905508567696128
+    },
+    {
+      "bodies": [
+        "/humanoid/Geometry/base_link/lift_top_link/torso_pitch_link/right_arm_base_link/right_arm_1_link/right_arm_2_link/right_arm_3_link/right_arm_4_link/right_arm_5_link/right_arm_6_link/right_gripper_base_link/right_gripper_right_main_link/right_gripper_right_1_link",
+        "/humanoid/Geometry/base_link/lift_top_link/torso_pitch_link/right_arm_base_link/right_arm_1_link/right_arm_2_link/right_arm_3_link/right_arm_4_link/right_arm_5_link/right_arm_6_link/right_gripper_base_link/right_gripper_right_main_link/right_gripper_right_slip_link"
+      ],
+      "reason": "CT夹爪同侧闭链装配：连杆轴孔/滑块凸包重叠，保留手指与对侧指垫、环境及躯干碰撞",
+      "measured_overlap_m": 0.011905483475134218
+    },
+    {
+      "bodies": [
+        "/humanoid/Geometry/base_link/lift_top_link/torso_pitch_link/left_arm_base_link/left_arm_1_link/left_arm_2_link/left_arm_3_link/left_arm_4_link/left_arm_5_link/left_arm_6_link/left_gripper_base_link/left_gripper_right_main_link/left_gripper_right_1_link",
+        "/humanoid/Geometry/base_link/lift_top_link/torso_pitch_link/left_arm_base_link/left_arm_1_link/left_arm_2_link/left_arm_3_link/left_arm_4_link/left_arm_5_link/left_arm_6_link/left_gripper_base_link/left_gripper_right_main_link/left_gripper_right_slip_link"
+      ],
+      "reason": "CT夹爪同侧闭链装配：连杆轴孔/滑块凸包重叠，保留手指与对侧指垫、环境及躯干碰撞",
+      "measured_overlap_m": 0.011905463990098715
+    },
+    {
+      "bodies": [
+        "/humanoid/Geometry/base_link/lift_top_link/torso_pitch_link/left_arm_base_link/left_arm_1_link/left_arm_2_link/left_arm_3_link/left_arm_4_link/left_arm_5_link/left_arm_6_link/left_gripper_base_link/left_gripper_left_main_link/left_gripper_left_1_link",
+        "/humanoid/Geometry/base_link/lift_top_link/torso_pitch_link/left_arm_base_link/left_arm_1_link/left_arm_2_link/left_arm_3_link/left_arm_4_link/left_arm_5_link/left_arm_6_link/left_gripper_base_link/left_gripper_left_main_link/left_gripper_left_slip_link"
+      ],
+      "reason": "CT夹爪同侧闭链装配：连杆轴孔/滑块凸包重叠，保留手指与对侧指垫、环境及躯干碰撞",
+      "measured_overlap_m": 0.011905425615483696
+    },
+    {
+      "bodies": [
+        "/humanoid/Geometry/base_link/lift_top_link/torso_pitch_link/right_arm_base_link/right_arm_1_link/right_arm_2_link/right_arm_3_link/right_arm_4_link/right_arm_5_link/right_arm_6_link/right_gripper_base_link/right_gripper_left_3_link",
+        "/humanoid/Geometry/base_link/lift_top_link/torso_pitch_link/right_arm_base_link/right_arm_1_link/right_arm_2_link/right_arm_3_link/right_arm_4_link/right_arm_5_link/right_arm_6_link/right_gripper_base_link/right_gripper_left_main_link"
+      ],
+      "reason": "CT夹爪同侧闭链装配：连杆轴孔/滑块凸包重叠，保留手指与对侧指垫、环境及躯干碰撞",
+      "measured_overlap_m": 0.011901137840977941
+    },
+    {
+      "bodies": [
+        "/humanoid/Geometry/base_link/lift_top_link/torso_pitch_link/right_arm_base_link/right_arm_1_link/right_arm_2_link/right_arm_3_link/right_arm_4_link/right_arm_5_link/right_arm_6_link/right_gripper_base_link/right_gripper_right_3_link",
+        "/humanoid/Geometry/base_link/lift_top_link/torso_pitch_link/right_arm_base_link/right_arm_1_link/right_arm_2_link/right_arm_3_link/right_arm_4_link/right_arm_5_link/right_arm_6_link/right_gripper_base_link/right_gripper_right_main_link"
+      ],
+      "reason": "CT夹爪同侧闭链装配：连杆轴孔/滑块凸包重叠，保留手指与对侧指垫、环境及躯干碰撞",
+      "measured_overlap_m": 0.011901137700211048
+    },
+    {
+      "bodies": [
+        "/humanoid/Geometry/base_link/lift_top_link/torso_pitch_link/left_arm_base_link/left_arm_1_link/left_arm_2_link/left_arm_3_link/left_arm_4_link/left_arm_5_link/left_arm_6_link/left_gripper_base_link/left_gripper_left_3_link",
+        "/humanoid/Geometry/base_link/lift_top_link/torso_pitch_link/left_arm_base_link/left_arm_1_link/left_arm_2_link/left_arm_3_link/left_arm_4_link/left_arm_5_link/left_arm_6_link/left_gripper_base_link/left_gripper_left_main_link"
+      ],
+      "reason": "CT夹爪同侧闭链装配：连杆轴孔/滑块凸包重叠，保留手指与对侧指垫、环境及躯干碰撞",
+      "measured_overlap_m": 0.011901127441778786
+    },
+    {
+      "bodies": [
+        "/humanoid/Geometry/base_link/lift_top_link/torso_pitch_link/left_arm_base_link/left_arm_1_link/left_arm_2_link/left_arm_3_link/left_arm_4_link/left_arm_5_link/left_arm_6_link/left_gripper_base_link/left_gripper_right_3_link",
+        "/humanoid/Geometry/base_link/lift_top_link/torso_pitch_link/left_arm_base_link/left_arm_1_link/left_arm_2_link/left_arm_3_link/left_arm_4_link/left_arm_5_link/left_arm_6_link/left_gripper_base_link/left_gripper_right_main_link"
+      ],
+      "reason": "CT夹爪同侧闭链装配：连杆轴孔/滑块凸包重叠，保留手指与对侧指垫、环境及躯干碰撞",
+      "measured_overlap_m": 0.01190111259007311
+    },
+    {
+      "bodies": [
+        "/humanoid/Geometry/base_link/lift_top_link/torso_pitch_link/left_arm_base_link/left_arm_1_link/left_arm_2_link/left_arm_3_link/left_arm_4_link/left_arm_5_link/left_arm_6_link/left_gripper_base_link/left_gripper_left_2_link/left_gripper_left_in_link",
+        "/humanoid/Geometry/base_link/lift_top_link/torso_pitch_link/left_arm_base_link/left_arm_1_link/left_arm_2_link/left_arm_3_link/left_arm_4_link/left_arm_5_link/left_arm_6_link/left_gripper_base_link/left_gripper_left_main_link/left_gripper_left_1_link"
+      ],
+      "reason": "CT夹爪同侧闭链装配：连杆轴孔/滑块凸包重叠，保留手指与对侧指垫、环境及躯干碰撞",
+      "measured_overlap_m": 0.011897707613575115
+    },
+    {
+      "bodies": [
+        "/humanoid/Geometry/base_link/lift_top_link/torso_pitch_link/right_arm_base_link/right_arm_1_link/right_arm_2_link/right_arm_3_link/right_arm_4_link/right_arm_5_link/right_arm_6_link/right_gripper_base_link/right_gripper_right_2_link/right_gripper_right_in_link",
+        "/humanoid/Geometry/base_link/lift_top_link/torso_pitch_link/right_arm_base_link/right_arm_1_link/right_arm_2_link/right_arm_3_link/right_arm_4_link/right_arm_5_link/right_arm_6_link/right_gripper_base_link/right_gripper_right_main_link/right_gripper_right_1_link"
+      ],
+      "reason": "CT夹爪同侧闭链装配：连杆轴孔/滑块凸包重叠，保留手指与对侧指垫、环境及躯干碰撞",
+      "measured_overlap_m": 0.011897488055881715
+    },
+    {
+      "bodies": [
+        "/humanoid/Geometry/base_link/lift_top_link/torso_pitch_link/right_arm_base_link/right_arm_1_link/right_arm_2_link/right_arm_3_link/right_arm_4_link/right_arm_5_link/right_arm_6_link/right_gripper_base_link/right_gripper_left_2_link/right_gripper_left_in_link",
+        "/humanoid/Geometry/base_link/lift_top_link/torso_pitch_link/right_arm_base_link/right_arm_1_link/right_arm_2_link/right_arm_3_link/right_arm_4_link/right_arm_5_link/right_arm_6_link/right_gripper_base_link/right_gripper_left_main_link/right_gripper_left_1_link"
+      ],
+      "reason": "CT夹爪同侧闭链装配：连杆轴孔/滑块凸包重叠，保留手指与对侧指垫、环境及躯干碰撞",
+      "measured_overlap_m": 0.011897464135840002
+    },
+    {
+      "bodies": [
+        "/humanoid/Geometry/base_link/lift_top_link/torso_pitch_link/left_arm_base_link/left_arm_1_link/left_arm_2_link/left_arm_3_link/left_arm_4_link/left_arm_5_link/left_arm_6_link/left_gripper_base_link/left_gripper_right_2_link/left_gripper_right_in_link",
+        "/humanoid/Geometry/base_link/lift_top_link/torso_pitch_link/left_arm_base_link/left_arm_1_link/left_arm_2_link/left_arm_3_link/left_arm_4_link/left_arm_5_link/left_arm_6_link/left_gripper_base_link/left_gripper_right_main_link/left_gripper_right_1_link"
+      ],
+      "reason": "CT夹爪同侧闭链装配：连杆轴孔/滑块凸包重叠，保留手指与对侧指垫、环境及躯干碰撞",
+      "measured_overlap_m": 0.011896221543791776
+    },
+    {
+      "bodies": [
+        "/humanoid/Geometry/base_link/lift_top_link/torso_pitch_link/left_arm_base_link/left_arm_1_link/left_arm_2_link/left_arm_3_link/left_arm_4_link/left_arm_5_link/left_arm_6_link/left_gripper_base_link/left_gripper_left_2_link",
+        "/humanoid/Geometry/base_link/lift_top_link/torso_pitch_link/left_arm_base_link/left_arm_1_link/left_arm_2_link/left_arm_3_link/left_arm_4_link/left_arm_5_link/left_arm_6_link/left_gripper_base_link/left_gripper_left_main_link/left_gripper_left_1_link"
+      ],
+      "reason": "CT夹爪同侧闭链装配：连杆轴孔/滑块凸包重叠，保留手指与对侧指垫、环境及躯干碰撞",
+      "measured_overlap_m": 0.011831493389854193
+    },
+    {
+      "bodies": [
+        "/humanoid/Geometry/base_link/lift_top_link/torso_pitch_link/right_arm_base_link/right_arm_1_link/right_arm_2_link/right_arm_3_link/right_arm_4_link/right_arm_5_link/right_arm_6_link/right_gripper_base_link/right_gripper_right_2_link",
+        "/humanoid/Geometry/base_link/lift_top_link/torso_pitch_link/right_arm_base_link/right_arm_1_link/right_arm_2_link/right_arm_3_link/right_arm_4_link/right_arm_5_link/right_arm_6_link/right_gripper_base_link/right_gripper_right_main_link/right_gripper_right_1_link"
+      ],
+      "reason": "CT夹爪同侧闭链装配：连杆轴孔/滑块凸包重叠，保留手指与对侧指垫、环境及躯干碰撞",
+      "measured_overlap_m": 0.011831260891275853
+    },
+    {
+      "bodies": [
+        "/humanoid/Geometry/base_link/lift_top_link/torso_pitch_link/right_arm_base_link/right_arm_1_link/right_arm_2_link/right_arm_3_link/right_arm_4_link/right_arm_5_link/right_arm_6_link/right_gripper_base_link/right_gripper_left_2_link",
+        "/humanoid/Geometry/base_link/lift_top_link/torso_pitch_link/right_arm_base_link/right_arm_1_link/right_arm_2_link/right_arm_3_link/right_arm_4_link/right_arm_5_link/right_arm_6_link/right_gripper_base_link/right_gripper_left_main_link/right_gripper_left_1_link"
+      ],
+      "reason": "CT夹爪同侧闭链装配：连杆轴孔/滑块凸包重叠，保留手指与对侧指垫、环境及躯干碰撞",
+      "measured_overlap_m": 0.011831205790251504
+    },
+    {
+      "bodies": [
+        "/humanoid/Geometry/base_link/lift_top_link/torso_pitch_link/left_arm_base_link/left_arm_1_link/left_arm_2_link/left_arm_3_link/left_arm_4_link/left_arm_5_link/left_arm_6_link/left_gripper_base_link/left_gripper_right_2_link",
+        "/humanoid/Geometry/base_link/lift_top_link/torso_pitch_link/left_arm_base_link/left_arm_1_link/left_arm_2_link/left_arm_3_link/left_arm_4_link/left_arm_5_link/left_arm_6_link/left_gripper_base_link/left_gripper_right_main_link/left_gripper_right_1_link"
+      ],
+      "reason": "CT夹爪同侧闭链装配：连杆轴孔/滑块凸包重叠，保留手指与对侧指垫、环境及躯干碰撞",
+      "measured_overlap_m": 0.011830247421855875
+    },
+    {
+      "bodies": [
+        "/humanoid/Geometry/base_link/lift_top_link/torso_pitch_link/left_arm_base_link/left_arm_1_link/left_arm_2_link/left_arm_3_link/left_arm_4_link/left_arm_5_link/left_arm_6_link/left_gripper_base_link/left_gripper_right_2_link/left_gripper_right_in_link",
+        "/humanoid/Geometry/base_link/lift_top_link/torso_pitch_link/left_arm_base_link/left_arm_1_link/left_arm_2_link/left_arm_3_link/left_arm_4_link/left_arm_5_link/left_arm_6_link/left_gripper_base_link/left_gripper_right_3_link"
+      ],
+      "reason": "CT夹爪同侧闭链装配：连杆轴孔/滑块凸包重叠，保留手指与对侧指垫、环境及躯干碰撞",
+      "measured_overlap_m": 0.011091114438401991
+    },
+    {
+      "bodies": [
+        "/humanoid/Geometry/base_link/lift_top_link/torso_pitch_link/left_arm_base_link/left_arm_1_link/left_arm_2_link/left_arm_3_link/left_arm_4_link/left_arm_5_link/left_arm_6_link/left_gripper_base_link/left_gripper_left_2_link/left_gripper_left_in_link",
+        "/humanoid/Geometry/base_link/lift_top_link/torso_pitch_link/left_arm_base_link/left_arm_1_link/left_arm_2_link/left_arm_3_link/left_arm_4_link/left_arm_5_link/left_arm_6_link/left_gripper_base_link/left_gripper_left_3_link"
+      ],
+      "reason": "CT夹爪同侧闭链装配：连杆轴孔/滑块凸包重叠，保留手指与对侧指垫、环境及躯干碰撞",
+      "measured_overlap_m": 0.011090060715630142
+    },
+    {
+      "bodies": [
+        "/humanoid/Geometry/base_link/lift_top_link/torso_pitch_link/right_arm_base_link/right_arm_1_link/right_arm_2_link/right_arm_3_link/right_arm_4_link/right_arm_5_link/right_arm_6_link/right_gripper_base_link/right_gripper_right_2_link/right_gripper_right_in_link",
+        "/humanoid/Geometry/base_link/lift_top_link/torso_pitch_link/right_arm_base_link/right_arm_1_link/right_arm_2_link/right_arm_3_link/right_arm_4_link/right_arm_5_link/right_arm_6_link/right_gripper_base_link/right_gripper_right_3_link"
+      ],
+      "reason": "CT夹爪同侧闭链装配：连杆轴孔/滑块凸包重叠，保留手指与对侧指垫、环境及躯干碰撞",
+      "measured_overlap_m": 0.01109005280490035
+    },
+    {
+      "bodies": [
+        "/humanoid/Geometry/base_link/lift_top_link/torso_pitch_link/right_arm_base_link/right_arm_1_link/right_arm_2_link/right_arm_3_link/right_arm_4_link/right_arm_5_link/right_arm_6_link/right_gripper_base_link/right_gripper_left_2_link/right_gripper_left_in_link",
+        "/humanoid/Geometry/base_link/lift_top_link/torso_pitch_link/right_arm_base_link/right_arm_1_link/right_arm_2_link/right_arm_3_link/right_arm_4_link/right_arm_5_link/right_arm_6_link/right_gripper_base_link/right_gripper_left_3_link"
+      ],
+      "reason": "CT夹爪同侧闭链装配：连杆轴孔/滑块凸包重叠，保留手指与对侧指垫、环境及躯干碰撞",
+      "measured_overlap_m": 0.011089729623507988
+    },
+    {
+      "bodies": [
+        "/humanoid/Geometry/base_link/lift_top_link/torso_pitch_link/right_arm_base_link/right_arm_1_link/right_arm_2_link/right_arm_3_link/right_arm_4_link/right_arm_5_link/right_arm_6_link/right_gripper_base_link/right_gripper_right_2_link",
+        "/humanoid/Geometry/base_link/lift_top_link/torso_pitch_link/right_arm_base_link/right_arm_1_link/right_arm_2_link/right_arm_3_link/right_arm_4_link/right_arm_5_link/right_arm_6_link/right_gripper_base_link/right_gripper_right_main_link/right_gripper_right_slip_link"
+      ],
+      "reason": "CT夹爪同侧闭链装配：连杆轴孔/滑块凸包重叠，保留手指与对侧指垫、环境及躯干碰撞",
+      "measured_overlap_m": 0.003052075790967576
+    },
+    {
+      "bodies": [
+        "/humanoid/Geometry/base_link/lift_top_link/torso_pitch_link/right_arm_base_link/right_arm_1_link/right_arm_2_link/right_arm_3_link/right_arm_4_link/right_arm_5_link/right_arm_6_link/right_gripper_base_link/right_gripper_left_2_link",
+        "/humanoid/Geometry/base_link/lift_top_link/torso_pitch_link/right_arm_base_link/right_arm_1_link/right_arm_2_link/right_arm_3_link/right_arm_4_link/right_arm_5_link/right_arm_6_link/right_gripper_base_link/right_gripper_left_main_link/right_gripper_left_slip_link"
+      ],
+      "reason": "CT夹爪同侧闭链装配：连杆轴孔/滑块凸包重叠，保留手指与对侧指垫、环境及躯干碰撞",
+      "measured_overlap_m": 0.0030516191858068614
+    },
+    {
+      "bodies": [
+        "/humanoid/Geometry/base_link/lift_top_link/torso_pitch_link/left_arm_base_link/left_arm_1_link/left_arm_2_link/left_arm_3_link/left_arm_4_link/left_arm_5_link/left_arm_6_link/left_gripper_base_link/left_gripper_right_2_link",
+        "/humanoid/Geometry/base_link/lift_top_link/torso_pitch_link/left_arm_base_link/left_arm_1_link/left_arm_2_link/left_arm_3_link/left_arm_4_link/left_arm_5_link/left_arm_6_link/left_gripper_base_link/left_gripper_right_main_link/left_gripper_right_slip_link"
+      ],
+      "reason": "CT夹爪同侧闭链装配：连杆轴孔/滑块凸包重叠，保留手指与对侧指垫、环境及躯干碰撞",
+      "measured_overlap_m": 0.0030495022875887227
+    },
+    {
+      "bodies": [
+        "/humanoid/Geometry/base_link/lift_top_link/torso_pitch_link/left_arm_base_link/left_arm_1_link/left_arm_2_link/left_arm_3_link/left_arm_4_link/left_arm_5_link/left_arm_6_link/left_gripper_base_link/left_gripper_left_2_link",
+        "/humanoid/Geometry/base_link/lift_top_link/torso_pitch_link/left_arm_base_link/left_arm_1_link/left_arm_2_link/left_arm_3_link/left_arm_4_link/left_arm_5_link/left_arm_6_link/left_gripper_base_link/left_gripper_left_main_link/left_gripper_left_slip_link"
+      ],
+      "reason": "CT夹爪同侧闭链装配：连杆轴孔/滑块凸包重叠，保留手指与对侧指垫、环境及躯干碰撞",
+      "measured_overlap_m": 0.003047665337057599
+    },
+    {
+      "bodies": [
+        "/humanoid/Geometry/base_link/lift_top_link/torso_pitch_link/right_arm_base_link/right_arm_1_link/right_arm_2_link/right_arm_3_link/right_arm_4_link/right_arm_5_link/right_arm_6_link/right_gripper_base_link",
+        "/humanoid/Geometry/base_link/lift_top_link/torso_pitch_link/right_arm_base_link/right_arm_1_link/right_arm_2_link/right_arm_3_link/right_arm_4_link/right_arm_5_link/right_arm_6_link/right_gripper_base_link/right_gripper_right_main_link/right_gripper_right_1_link"
+      ],
+      "reason": "CT夹爪闭链装配凸包：开合扫描确认的内部连杆重叠",
+      "measured_overlap_m": 0.0012158914267308895
+    },
+    {
+      "bodies": [
+        "/humanoid/Geometry/base_link/lift_top_link/torso_pitch_link/left_arm_base_link/left_arm_1_link/left_arm_2_link/left_arm_3_link/left_arm_4_link/left_arm_5_link/left_arm_6_link/left_gripper_base_link",
+        "/humanoid/Geometry/base_link/lift_top_link/torso_pitch_link/left_arm_base_link/left_arm_1_link/left_arm_2_link/left_arm_3_link/left_arm_4_link/left_arm_5_link/left_arm_6_link/left_gripper_base_link/left_gripper_right_main_link/left_gripper_right_1_link"
+      ],
+      "reason": "CT夹爪闭链装配凸包：开合扫描确认的内部连杆重叠",
+      "measured_overlap_m": 0.0012158914267307727
+    },
+    {
+      "bodies": [
+        "/humanoid/Geometry/base_link/lift_top_link/torso_pitch_link/right_arm_base_link/right_arm_1_link/right_arm_2_link/right_arm_3_link/right_arm_4_link/right_arm_5_link/right_arm_6_link/right_gripper_base_link",
+        "/humanoid/Geometry/base_link/lift_top_link/torso_pitch_link/right_arm_base_link/right_arm_1_link/right_arm_2_link/right_arm_3_link/right_arm_4_link/right_arm_5_link/right_arm_6_link/right_gripper_base_link/right_gripper_left_main_link/right_gripper_left_1_link"
+      ],
+      "reason": "CT夹爪闭链装配凸包：开合扫描确认的内部连杆重叠",
+      "measured_overlap_m": 0.0012152592354738056
+    },
+    {
+      "bodies": [
+        "/humanoid/Geometry/base_link/lift_top_link/torso_pitch_link/left_arm_base_link/left_arm_1_link/left_arm_2_link/left_arm_3_link/left_arm_4_link/left_arm_5_link/left_arm_6_link/left_gripper_base_link",
+        "/humanoid/Geometry/base_link/lift_top_link/torso_pitch_link/left_arm_base_link/left_arm_1_link/left_arm_2_link/left_arm_3_link/left_arm_4_link/left_arm_5_link/left_arm_6_link/left_gripper_base_link/left_gripper_left_main_link/left_gripper_left_1_link"
+      ],
+      "reason": "CT夹爪闭链装配凸包：开合扫描确认的内部连杆重叠",
+      "measured_overlap_m": 0.0012152592349596214
+    }
+  ],
+  "environment_allowed_pairs": [
+    {
+      "bodies": [
+        "/humanoid/Geometry/base_link/caster_rear_left_link/rear_left_wheel_link",
+        "/World/ground_plane/geom"
+      ],
+      "reason": "轮胎与地面支撑接触"
+    },
+    {
+      "bodies": [
+        "/humanoid/Geometry/base_link/caster_front_left_link/front_left_wheel_link",
+        "/World/ground_plane/geom"
+      ],
+      "reason": "轮胎与地面支撑接触"
+    },
+    {
+      "bodies": [
+        "/humanoid/Geometry/base_link/caster_front_right_link/front_right_wheel_link",
+        "/World/ground_plane/geom"
+      ],
+      "reason": "轮胎与地面支撑接触"
+    },
+    {
+      "bodies": [
+        "/humanoid/Geometry/base_link/caster_rear_right_link/rear_right_wheel_link",
+        "/World/ground_plane/geom"
+      ],
+      "reason": "轮胎与地面支撑接触"
+    }
+  ],
+  "self_margin_m": 0.008,
+  "environment_margin_m": 0.005,
+  "calibrated": false
+}

@@ -48,3 +48,38 @@ assets/deliver/
 
 # Isaac 字体图集（--/app/font/saveAtlas=1 时生成在仓库根，20MB+）
 font_atlas.png
+
+# SimPeople人物缓存另放外部checkout；本地演示录像、轨迹与USD覆盖层不入库。
+/outputs/
+
+# 完整旧机器人包移至外部资产目录；本机保留同名软链接，恢复入口见assets/README.md。
+/humanoid_upper_body_v3
+/scripts/scene/background_faces/*.png
+
+# 第三方原文件、转换缓存与本机验收几何；仅提交目录说明、来源清单和参数。
+/assets/l3_operable/source/
+/assets/l3_operable/textures/
+/assets/l3_operable/*.usda
+/assets/USD001/*.usdz
+/assets/USD001/*/
+/assets/USD001/gallery.usda
+/assets/oxford_devices/upstream/
+/assets/oxford_devices/usd/
+/assets/oxford_devices/urdf/
+/assets/oxford_devices/gallery.usda
+/assets/manufacturer_cad/**/*.stp
+/assets/manufacturer_cad/**/usd/
+/assets/robot_safety/backup/
+/assets/operation_panel.usda
+
+# 本机覆盖、凭据和导出数据不得上传。
+config.local.json
+.env
+.env.*
+!.env.example
+.aws
+*.h5
+*.hdf5
+*.bag
+*.db3
+*.mp4

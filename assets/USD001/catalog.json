@@ -1,0 +1,286 @@
+{
+  "basis": "用户要求先按外观候选；非设备型号或真实功能认定",
+  "assets": [
+    {
+      "id": "001",
+      "appearance_name": "小型带门控制箱",
+      "classification": "appearance_candidate_only",
+      "source_file": "001.usdz",
+      "load_file": "normalized/001.usda",
+      "visible_features": [
+        "箱体",
+        "门轮廓",
+        "黑色旋转把手样式件",
+        "显示窗"
+      ],
+      "candidate_action_ids": [
+        "11-1",
+        "11-2"
+      ],
+      "notes": [
+        "门锁把手与电气选择开关不能仅凭外观混同"
+      ],
+      "physics_ready": false,
+      "robot_contact_verified": false,
+      "dimensions_verified": false,
+      "extra_nameplates_added": false
+    },
+    {
+      "id": "002",
+      "appearance_name": "多表计、多圆形控件柜",
+      "classification": "appearance_candidate_only",
+      "source_file": "002.usdz",
+      "load_file": "normalized/002.usda",
+      "visible_features": [
+        "4个方形表计外观",
+        "多排圆形控件",
+        "门把手"
+      ],
+      "candidate_action_ids": [
+        "4-1",
+        "4-2",
+        "5-1",
+        "5-2",
+        "11-1",
+        "11-2"
+      ],
+      "notes": [
+        "圆形控件的按钮/灯身份待确认"
+      ],
+      "physics_ready": false,
+      "robot_contact_verified": false,
+      "dimensions_verified": false,
+      "extra_nameplates_added": false
+    },
+    {
+      "id": "003",
+      "appearance_name": "宽型多分仓柜",
+      "classification": "appearance_candidate_only",
+      "source_file": "003.usdz",
+      "load_file": "normalized/003.usda",
+      "visible_features": [
+        "显示/操作区域",
+        "少量圆形控件",
+        "多门及把手",
+        "下部操作口样式件"
+      ],
+      "candidate_action_ids": [
+        "4-1",
+        "4-2",
+        "5-1",
+        "5-2",
+        "11-1",
+        "11-2"
+      ],
+      "notes": [
+        "不能据柜体外形认定有可操作断路器"
+      ],
+      "physics_ready": false,
+      "robot_contact_verified": false,
+      "dimensions_verified": false,
+      "extra_nameplates_added": false
+    },
+    {
+      "id": "004",
+      "appearance_name": "显示面板控制柜",
+      "classification": "appearance_candidate_only",
+      "source_file": "004.usdz",
+      "load_file": "normalized/004.usda",
+      "visible_features": [
+        "显示窗",
+        "圆形控件",
+        "门把手"
+      ],
+      "candidate_action_ids": [
+        "4-1",
+        "4-2",
+        "5-1",
+        "5-2",
+        "11-1",
+        "11-2"
+      ],
+      "notes": [
+        "未确认专用急停机构"
+      ],
+      "physics_ready": false,
+      "robot_contact_verified": false,
+      "dimensions_verified": false,
+      "extra_nameplates_added": false
+    },
+    {
+      "id": "005",
+      "appearance_name": "双门多表计柜",
+      "classification": "appearance_candidate_only",
+      "source_file": "005.usdz",
+      "load_file": "normalized/005.usda",
+      "visible_features": [
+        "3个表计外观",
+        "小型三圆件面板",
+        "多处门把手/操作口"
+      ],
+      "candidate_action_ids": [
+        "5-1",
+        "5-2",
+        "11-1",
+        "11-2"
+      ],
+      "notes": [
+        "把手/操作口用途待确认"
+      ],
+      "physics_ready": false,
+      "robot_contact_verified": false,
+      "dimensions_verified": false,
+      "extra_nameplates_added": false
+    },
+    {
+      "id": "006",
+      "appearance_name": "窄型多分仓面板柜",
+      "classification": "appearance_candidate_only",
+      "source_file": "006.usdz",
+      "load_file": "normalized/006.usda",
+      "visible_features": [
+        "多圆形控件",
+        "显示窗",
+        "多门把手",
+        "下部操作口样式件"
+      ],
+      "candidate_action_ids": [
+        "4-1",
+        "4-2",
+        "5-1",
+        "5-2",
+        "11-1",
+        "11-2"
+      ],
+      "notes": [
+        "柜内没有独立断路器或压板机构"
+      ],
+      "physics_ready": false,
+      "robot_contact_verified": false,
+      "dimensions_verified": false,
+      "extra_nameplates_added": false
+    },
+    {
+      "id": "007",
+      "appearance_name": "带警告贴图的小箱体",
+      "classification": "appearance_candidate_only",
+      "source_file": "007.usdz",
+      "load_file": "normalized/007.usda",
+      "visible_features": [
+        "箱体",
+        "简化黑色把手",
+        "警告贴图"
+      ],
+      "candidate_action_ids": [
+        "11-1",
+        "11-2"
+      ],
+      "notes": [
+        "主体为一个盒状连通分量，不能视为已拆门/柜壳"
+      ],
+      "physics_ready": false,
+      "robot_contact_verified": false,
+      "dimensions_verified": false,
+      "extra_nameplates_added": false
+    },
+    {
+      "id": "008",
+      "appearance_name": "无警告贴图的小箱体",
+      "classification": "appearance_candidate_only",
+      "source_file": "008.usdz",
+      "load_file": "normalized/008.usda",
+      "visible_features": [
+        "箱体",
+        "简化黑色把手"
+      ],
+      "candidate_action_ids": [
+        "11-1",
+        "11-2"
+      ],
+      "notes": [
+        "仅2个拓扑分量：盒体和把手，需重建门体/内腔"
+      ],
+      "physics_ready": false,
+      "robot_contact_verified": false,
+      "dimensions_verified": false,
+      "extra_nameplates_added": false
+    },
+    {
+      "id": "009",
+      "appearance_name": "带提手和支脚的小箱体",
+      "classification": "appearance_candidate_only",
+      "source_file": "009.usdz",
+      "load_file": "normalized/009.usda",
+      "visible_features": [
+        "箱体",
+        "顶部提手",
+        "支脚",
+        "黑色把手"
+      ],
+      "candidate_action_ids": [
+        "11-1",
+        "11-2"
+      ],
+      "notes": [
+        "顶部提手不能当提拉压板"
+      ],
+      "physics_ready": false,
+      "robot_contact_verified": false,
+      "dimensions_verified": false,
+      "extra_nameplates_added": false
+    },
+    {
+      "id": "010",
+      "appearance_name": "八圆形控件、双旋钮控制箱",
+      "classification": "appearance_candidate_only",
+      "source_file": "010.usdz",
+      "load_file": "normalized/010.usda",
+      "visible_features": [
+        "8个圆形控件外观",
+        "2个旋钮样式件",
+        "门轮廓",
+        "门把手"
+      ],
+      "candidate_action_ids": [
+        "1-1",
+        "1-2",
+        "2-1",
+        "2-2",
+        "3-1",
+        "3-2",
+        "4-1",
+        "4-2",
+        "5-1",
+        "5-2",
+        "11-1",
+        "11-2"
+      ],
+      "notes": [
+        "候选优先级最高；功能、灯/按钮身份、档位和尺寸均未标定"
+      ],
+      "physics_ready": false,
+      "robot_contact_verified": false,
+      "dimensions_verified": false,
+      "extra_nameplates_added": false
+    },
+    {
+      "id": "011",
+      "appearance_name": "独立方形指针表计",
+      "classification": "appearance_candidate_only",
+      "source_file": "011.usdz",
+      "load_file": "normalized/011.usda",
+      "visible_features": [
+        "表壳",
+        "指针外观"
+      ],
+      "candidate_action_ids": [],
+      "notes": [
+        "用于表计/指针方向识别候选；不新增22项功能动作，精确读数需刻度数据"
+      ],
+      "physics_ready": false,
+      "robot_contact_verified": false,
+      "dimensions_verified": false,
+      "extra_nameplates_added": false
+    }
+  ]
+}

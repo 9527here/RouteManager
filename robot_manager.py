@@ -42,10 +42,13 @@ def _serialize_camera_image(rgb):
     }
 
 
-# 底盘驱动轮（skid-steer 四轮差速）。这些关节由 set_base_velocity 速度控制
-# 专管；关节位置指令（ROS/HTTP）里的轮子分量会被忽略，避免两路控制打架。
+# 八关节齐全时为四轮独立转向/驱动；旧四轮模型仍走原差速控制。
+# 底盘关节由 set_base_velocity 专管，避免整机位置指令钉住舵角和轮子。
 _BASE_WHEEL_JOINTS = ("front_left_wheel_joint", "front_right_wheel_joint",
                       "rear_left_wheel_joint", "rear_right_wheel_joint")
+_BASE_STEERING_JOINTS = ("caster_front_left_joint", "caster_rear_left_joint",
+                         "caster_front_right_joint", "caster_rear_right_joint")
+_BASE_DRIVE_JOINTS = _BASE_STEERING_JOINTS + _BASE_WHEEL_JOINTS
 
 _STATIC_CAMERAS = (
     ("head_zed_x", 960, 600),
@@ -158,6 +161,11 @@ class RobotManager:
         render=None 表示主循环自动降频渲染（默认每 5 个物理步渲染一次）；
        显式传 True/False 时按调用方要求执行，供调试脚本和离线渲染使用。
         """
+        from scripts.physics_view_guard import guard
+        if not guard(self, logger):
+            # 保持窗口响应，但不再进入mimic/发布器的native读写回退循环。
+            self.simulation_app.update()
+            return
         self._process_ros_commands()
         # XRoboToolkit 遥操作端（UDP）目标。放在 ROS 之后：两条路都在时 UDP 赢
         # （VR 遥操作是实时的，ROS 指令是任务式的，让实时的覆盖更符合直觉）。
@@ -320,7 +328,8 @@ class RobotManager:
                     continue
                 position, quaternion = np.split(link_transforms[link_index], [3])
                 quaternion = quaternion / max(float(np.linalg.norm(quaternion)), 1e-9)
-                w, x, y, z = quaternion
+                # get_link_transforms() 的四元数是 xyzw（见 _link_pose_table）
+                x, y, z, w = quaternion
                 rotation = np.array([
                     [1 - 2 * (y * y + z * z), 2 * (x * y - w * z),
                      2 * (x * z + w * y)],
@@ -587,7 +596,12 @@ class RobotManager:
                      "/World/ground_plane/col"):
             p = stage.GetPrimAtPath(path)
             if p.IsValid():
-                UsdShade.MaterialBindingAPI.Apply(p).Bind(mat)
+                binding = UsdShade.MaterialBindingAPI.Apply(p)
+                binding.Bind(mat)
+                # 6.2 GroundPlane会给geom单独绑定physics材质（默认restitution=.8）。
+                # 普通绑定不会覆盖它，必须明确physics用途，才能兑现本方法的1/1/0设定。
+                binding.Bind(mat, bindingStrength=UsdShade.Tokens.strongerThanDescendants,
+                             materialPurpose="physics")
                 bound.append(path)
         logger.info(f"摩擦材质 {self._FRICTION} 已绑定: {bound}")
 
@@ -813,6 +827,8 @@ class RobotManager:
     def _tune_wheel_drives(self):
         """给底盘轮关节补上**位置驱动刚度**。
 
+        仅用于没有四个转向关节的旧差速模型；四轮八驱保留原生速度驱动参数。
+
         为什么必须补：`_update_base_velocity` 是把 (vx, wz) 折算成轮速、再逐帧
         前移**位置目标**的虚拟速度模式。而人形资产烘出来的 `*.gains.json` 里
         四个轮关节是 `stiffness: 0 / damping: 99.7` —— 纯阻尼驱动会忽略位置
@@ -828,6 +844,9 @@ class RobotManager:
         kd = float(cfg.get("wheel_damping", 0.08))
         try:
             names = list(self.articulation.dof_names)
+            if all(n in names for n in _BASE_DRIVE_JOINTS):
+                # 舵轮使用真实速度目标；不再把原生0刚度速度驱动改成位置弹簧。
+                return
             idx = [i for i, n in enumerate(names)
                    if n in _BASE_WHEEL_JOINTS]
             if not idx:
@@ -848,7 +867,7 @@ class RobotManager:
             logger.warning(f"底盘轮驱动调参失败(底盘可能推不动): {e!r}")
 
     def _tune_neck_drives(self, zeta: float = 1.5):
-        """把颈部关节的阻尼补到 ζ≈`zeta`（默认 1.5，接近临界阻尼）。
+        """恢复项目已有的颈部参考阻尼；force资产的真实阻尼比另需惯量标定。
 
         为什么必须补：URDF 里 `head_{pitch,yaw}_joint` 写的是 `damping=0.5`，
         但烘进 `*.gains.json` 时变成了 **0.0215 / 0.0435**（`_fix_gripper_joint_gains`
@@ -859,8 +878,9 @@ class RobotManager:
             静止整定后所有 link 摆幅 0.000mm —— 晃的只有头。
           · 补到 ζ=1.5 后同样一段流程 head_pitch 极差降到 **17.6 mrad (1.0°)**。
 
-        驱动是 `acceleration` 型（`力矩 = 惯量 × k × 角差`），所以 ζ = d/(2√k)，
-        取 d = ζ·2·√k —— 不用手填绝对值，跟着各自刚度走。
+        旧 `acceleration` 型驱动可用 ζ = d/(2√k)。当前L3整机是 `force` 型，
+        这里的 d = ζ·2·√k 仅沿用已做运动/抖动对照的仿真参考，不能把ζ当作
+        force驱动的实物阻尼比；刚度、力矩上限与摩擦不随此方法改变。
 
         顺带修腕部相机转台（`*_camera_rojoint`）：同一个烘焙出来的低阻尼，
         实测抖动中位 1.2 mrad、峰值 13.8 mrad，是除头之外最大的。
@@ -885,7 +905,7 @@ class RobotManager:
             if not changed:
                 return
             view.set_dof_dampings(d.reshape(1, -1), [0])
-            logger.info(f"颈部/相机转台阻尼 → ζ={zeta} ({changed} 个关节; "
+            logger.info(f"颈部/相机转台参考阻尼 → d={2*zeta:g}√k ({changed} 个关节; "
                         f"之前 {before})")
         except Exception as e:
             logger.warning(f"颈部驱动调参失败(头会晃): {e!r}")
@@ -1368,6 +1388,17 @@ class RobotManager:
     def set_joint_positions(self, positions: list, joint_names: list = None):
         """直接设置关节位置（瞬置语义；平滑控制用 send_joint_command）。"""
         self._require_robot()
+        names = list(self.articulation.dof_names)
+        if all(n in names for n in _BASE_DRIVE_JOINTS):
+            selected = names if joint_names is None else list(joint_names)
+            values = np.asarray(positions, dtype=np.float32).reshape(-1)
+            if values.size != len(selected):
+                raise ValueError('关节位置数量与关节名称数量不一致')
+            keep = [i for i, name in enumerate(selected) if name not in _BASE_DRIVE_JOINTS]
+            if keep:
+                self.articulation.set_joint_positions(values[keep].reshape(1, -1),
+                    joint_indices=[names.index(selected[i]) for i in keep])
+            return {"status": "ok", "base_joints_ignored": len(selected)-len(keep)}
         indices = (None if joint_names is None
                    else [self.articulation.get_dof_index(n) for n in joint_names])
         # 5.x view API 要求 (M, K)，单机器人 M=1
@@ -2988,7 +3019,13 @@ class RobotManager:
             if i >= lt.shape[0]:
                 break
             p = np.asarray(lt[i][:3], float)
-            q = np.asarray(lt[i][3:], float)          # wxyz
+            # **TensorAPI 的 link transform 是 pos(3) + quat(4, xyzw)**，不是
+            # wxyz。当 wxyz 读会让朝向整体错掉而位置仍然正确 —— 表现为"拿锚点
+            # 对得上了、一动关节就差 90°"。实测依据：同一批位形按 xyzw 解出的
+            # 基座常量变换在样本间只差 0.1°，按 wxyz 解差 55.8°；isaac_teleop
+            # 的 `x, y, z, w = q` 注释也一致。这里统一重排成 wxyz 再入库，
+            # 下游（_quat_wxyz_to_matrix / ROS2 契约）不必各自处理。
+            q = np.asarray(lt[i][3:], float)[[3, 0, 1, 2]]      # xyzw -> wxyz
             n = float(np.linalg.norm(q))
             table[name] = (p, q / n if n > 1e-9 else q)
         return table
@@ -3424,42 +3461,521 @@ class RobotManager:
         self._ros_controller.record_command(positions)
         return {"sent": True, "mode": "immediate"}
 
-    # ==================== 底盘（skid-steer 速度控制） ====================
+    # ==================== 底盘（四轮八驱；兼容旧四轮差速模型） ====================
 
-    def set_base_velocity(self, vx: float = 0.0, wz: float = 0.0):
-        """底盘速度指令（vx 前进 m/s，wz 左转 rad/s）。
+    def _get_swerve_model(self):
+        names = list(self.articulation.dof_names)
+        if not all(name in names for name in _BASE_DRIVE_JOINTS):
+            return None
+        cached = getattr(self, "_swerve_model", None)
+        if cached is not None and getattr(self, "_swerve_articulation", None) is self.articulation:
+            return cached
+        from swerve_base import SwerveModel
+        # load_urdf及当前L2工位会同步arm_kin.URDF；不靠旧wheel_radius/track_width猜几何。
+        source = (self._base_cfg or {}).get("swerve_urdf") or arm_kin.URDF
+        model = SwerveModel.from_urdf(source)
+        limits = np.asarray(self.articulation.get_dof_limits()).reshape(-1, 2)
+        model.set_steering_limits([limits[names.index(module.steering_joint)] for module in model.modules])
+        self._swerve_model, self._swerve_articulation = model, self.articulation
+        return model
 
-        WASD 键盘等客户端需以 >=10Hz 持续发送；超过 timeout 秒无更新
-        自动刹停（失联保护）。轮子由速度控制专管，关节指令中的轮子
-        分量同时被忽略（见 _apply_joint_positions）。
+    def get_base_drive_info(self):
+        """读取实际底盘结构、几何、限位和参考规格标记，不下发运动。"""
+        self._require_robot()
+        model = self._get_swerve_model()
+        if model is None:
+            return {"mode": "skid_steer_legacy", "supports_lateral": False}
+        result = model.metadata()
+        try:
+            model.solve(0., .1, 0.)
+            result["supports_lateral"] = True
+        except ValueError:
+            result["supports_lateral"] = False
+        result["steering_reference"] = getattr(self, "_swerve_reference", None)
+        result["control_active"] = self._base_cmd is not None
+        result["last_control"] = getattr(self, "_swerve_last_control", None)
+        result["last_verified_stop"] = getattr(self, "_swerve_last_stop", None)
+        result["parking_status"] = getattr(self, "_swerve_last_parking", None)
+        result["parking_verified"] = bool(self._base_cmd is None and
+            (getattr(self, "_swerve_last_parking", None) or {}).get('parking_verified',False))
+        return result
+
+    def park_base(self):
+        """显式前向驻车：停轮后把四舵回到0，再验证真实停稳；不固定基座。"""
+        self._require_robot()
+        model = self._get_swerve_model()
+        if model is None:
+            raise RuntimeError('当前机器人不具备可回正驻车的四轮八驱结构')
+        if self._base_cmd is not None and self._base_cmd.get('parking'):
+            return dict(getattr(self,'_swerve_last_parking',{}) or
+                        {'phase':'braking','parking_verified':False})
+        names = list(self.articulation.dof_names)
+        q = np.asarray(self.articulation.get_joint_positions()).reshape(-1)
+        si = [names.index(m.steering_joint) for m in model.modules]
+        target = model.solve_cardinal(.1,0.,q[si])['steering']
+        if np.max(abs(target)) > 1e-6:
+            raise RuntimeError('当前URDF转向零位不是前向，需重新确认驻车参考')
+        last = getattr(self,'_swerve_last_parking',None) or {}
+        stopped = getattr(self,'_swerve_last_stop',None)
+        pose = self._swerve_base_pose()
+        if (self._base_cmd is None and last.get('parking_verified') and stopped is not None
+                and np.max(abs(q[si])) < np.deg2rad(.5)
+                and np.max(abs(pose[:2]-np.asarray(stopped['base_pose'])[:2])) < .002
+                and abs((pose[2]-stopped['base_pose'][2]+np.pi)%(2*np.pi)-np.pi) < .01):
+            return dict(last)
+        if getattr(self,'_swerve_drive_state',None) is None:
+            self._engage_swerve_drive(model)
+        state = self._swerve_drive_state
+        state['parking_preposition'] = None
+        state['parking_stop_window'] = None
+        state['cardinal_axis'],state['cardinal_preposition'] = None,None
+        state['rotation_preposition'] = None
+        state['rotation_applied_speed'] = 0.
+        state['brake_sent'] = False
+        self._base_cmd = {'vx':0.,'vy':0.,'wz':0.,'t':time.time(),'parking':True}
+        self._swerve_last_parking = {'phase':'braking','parking_verified':False,
+            'steering_targets_rad':[0.]*4,'reference_only':True,
+            'message':'正在停轮并回正四个舵角，尚未完成驻车'}
+        return dict(self._swerve_last_parking)
+
+    def configure_swerve_base(self, reference_steering_limit_deg: float = None):
+        """会话内应用用户授权的参考舵角；不写回源URDF/USD，原值留在返回元数据中。"""
+        self._require_robot()
+        model = self._get_swerve_model()
+        if model is None:
+            raise RuntimeError('当前机器人不具备4转向+4驱动的完整底盘')
+        if self._base_cmd is not None:
+            raise RuntimeError('请先停止底盘并等待停稳，再调整参考舵角')
+        if reference_steering_limit_deg is None:
+            return self.get_base_drive_info()
+        value = float(reference_steering_limit_deg)
+        if not np.isfinite(value) or not 0 < value <= 180.:
+            raise ValueError('参考舵角应在0～180度之间')
+        from pxr import Usd, UsdPhysics
+        import omni.usd
+        stage = omni.usd.get_context().get_stage()
+        root = stage.GetPrimAtPath(self.robot_prim_path)
+        joints = {prim.GetName(): prim for prim in Usd.PrimRange(root) if prim.IsA(UsdPhysics.Joint)}
+        names = list(self.articulation.dof_names)
+        indices = [names.index(m.steering_joint) for m in model.modules]
+        original = np.asarray(self.articulation.get_dof_limits()).copy()
+        original = original.reshape(1, len(names), 2)
+        before_usd = {m.steering_joint: [joints[m.steering_joint].GetAttribute('physics:lowerLimit').Get(),
+                      joints[m.steering_joint].GetAttribute('physics:upperLimit').Get()] for m in model.modules}
+        if not hasattr(self, '_swerve_reference_backup'):
+            self._swerve_reference_backup = {'runtime_limits_rad': original[0, indices].tolist(),
+                                             'usd_limits_deg': before_usd}
+        changed = original.copy()
+        changed[0, indices, :] = [-np.deg2rad(value), np.deg2rad(value)]
+        # Session layer只覆盖当前仿真会话，关闭场景即失效，不污染源资产。
+        try:
+            with Usd.EditContext(stage, stage.GetSessionLayer()):
+                for module in model.modules:
+                    joint = joints[module.steering_joint]
+                    joint.GetAttribute('physics:lowerLimit').Set(-value)
+                    joint.GetAttribute('physics:upperLimit').Set(value)
+            self.articulation._physics_view.set_dof_limits(changed.astype(np.float32), np.array([0], dtype=np.uint32))
+            readback = np.asarray(self.articulation.get_dof_limits()).reshape(-1, 2)[indices]
+            if not np.allclose(readback, changed[0, indices], atol=1e-6):
+                raise RuntimeError('参考舵角张量读回不一致')
+        except Exception:
+            with Usd.EditContext(stage, stage.GetSessionLayer()):
+                for name, bounds in before_usd.items():
+                    joints[name].GetAttribute('physics:lowerLimit').Set(bounds[0])
+                    joints[name].GetAttribute('physics:upperLimit').Set(bounds[1])
+            self.articulation._physics_view.set_dof_limits(original.astype(np.float32), np.array([0], dtype=np.uint32))
+            raise
+        model.set_steering_limits(readback)
+        self._swerve_reference = {'steering_limit_deg': value, 'calibrated_to_user_hardware': False,
+            'source': '用户授权的仿真参考规格，待实测', 'layer': 'session',
+            'original': self._swerve_reference_backup}
+        return self.get_base_drive_info()
+
+    def _engage_swerve_drive(self, model):
+        names = list(self.articulation.dof_names)
+        wi = [names.index(m.wheel_joint) for m in model.modules]
+        si = [names.index(m.steering_joint) for m in model.modules]
+        view = self.articulation._physics_view
+        stiffness = np.asarray(view.get_dof_stiffnesses()).reshape(-1).copy()
+        damping = np.asarray(view.get_dof_dampings()).reshape(-1)
+        if np.any(stiffness[si] <= 0.):
+            raise RuntimeError('当前转向关节缺少位置伺服刚度，请先确认舵机参考参数')
+        if np.any(damping[wi] <= 0.):
+            raise RuntimeError('当前滚轮缺少速度伺服阻尼，请先确认驱动参考参数')
+        # 只在已有位置弹簧时临时切换控制模式；原生速度驱动不改阻尼/力矩/摩擦。
+        self._swerve_drive_state = {'wheel_indices': wi, 'steering_indices': si,
+            'saved_stiffness': stiffness[wi].copy(), 'gain_override': bool(np.any(stiffness[wi] != 0.)),
+            'brake_since': None, 'brake_sent': False,
+            'cardinal_axis': None, 'cardinal_preposition': None,
+            'rotation_preposition': None, 'rotation_applied_speed': 0.}
+        self._swerve_stop_window = None
+        if self._swerve_drive_state['gain_override']:
+            stiffness[wi] = 0.
+            view.set_dof_stiffnesses(stiffness.reshape(1, -1), [0])
+
+    def set_base_velocity(self, vx: float = 0.0, wz: float = 0.0, vy: float = 0.0,
+                          steering_targets=None):
+        """底盘局部速度：vx前进、vy向左(m/s)，wz逆时针(rad/s)；保留旧(vx,wz)位置参数。
+
+        客户端需持续刷新，超过timeout自动刹停。只有8关节齐全且舵角限位可行才走舵轮模式。
+        steering_targets可固定纯车身X/Y单轴平移的4个舵角(rad)，上层仍负责环境扫掠；
+        旋转、混合速度、旧差速或停止不接受该参数。省略时保留既有选支行为。
         """
         self._require_robot()
-        max_vx = float(self._base_cfg.get("max_vx", 0.6))
-        max_wz = float(self._base_cfg.get("max_wz", 1.6))
-        vx = max(-max_vx, min(max_vx, float(vx)))
-        wz = max(-max_wz, min(max_wz, float(wz)))
-        # **只在"从静止转为驱动"的那一次唤醒**：`_update_base_velocity` 在速度
-        # 为 0 时会撒手不写目标（见那里的注释），撒手之后 articulation 进入
-        # sleep，而**睡着时写位置目标唤不醒它**（实测底盘只走 1.7mm / 5s）；
-        # 写一次关节速度能可靠唤醒。
-        # **不能每次 set_base_velocity 都写** —— 客户端 10Hz 发指令，每帧把
-        # 速度写回采样值会把加速过程打断（实测底盘从 963mm/6s 掉到 50mm/6s）。
-        engage = self._base_cmd is None
-        self._base_cmd = {"vx": vx, "wz": wz, "t": time.time()}
-        if engage and (vx != 0.0 or wz != 0.0):
+        requested = np.asarray([vx, vy, wz], dtype=float)
+        if not np.isfinite(requested).all():
+            raise ValueError('底盘速度必须为有限数')
+        cfg = self._base_cfg or {}
+        vx = float(np.clip(vx, -float(cfg.get('max_vx', .6)), float(cfg.get('max_vx', .6))))
+        vy = float(np.clip(vy, -float(cfg.get('max_vy', cfg.get('max_vx', .6))), float(cfg.get('max_vy', cfg.get('max_vx', .6)))))
+        wz = float(np.clip(wz, -float(cfg.get('max_wz', 1.6)), float(cfg.get('max_wz', 1.6))))
+        model = self._get_swerve_model()
+        requested_steering = None
+        if steering_targets is not None:
+            if model is None or model.cardinal_axis(vx,vy,wz) is None:
+                raise ValueError('固定舵角仅用于四轮八驱的纯前后或纯左右平移；停止时请省略steering_targets')
             try:
-                v = np.asarray(
-                    self.articulation.get_joint_velocities()).reshape(-1)
-                self.articulation.set_joint_velocities(
-                    v.reshape(1, -1).astype(np.float32))
-            except Exception:
-                pass
-        return {"vx": vx, "wz": wz,
-                "timeout": float(self._base_cfg.get("timeout", 0.5))}
+                requested_steering = np.asarray(steering_targets,dtype=float).copy()
+            except (TypeError,ValueError) as error:
+                raise ValueError('固定舵角需要4个有限弧度值') from error
+            # 在改动当前任务/驻车状态前拒绝超限、非平行或形状错误的提示。
+            requested_steering = model.solve_cardinal(vx,vy,None,requested_steering)['steering'].copy()
+        old_parking = self._base_cmd is not None and self._base_cmd.get('parking')
+        if old_parking or any(abs(v)>1e-12 for v in (vx,vy,wz)):
+            self._swerve_last_parking = {'phase':'cancelled' if old_parking else 'inactive',
+                'parking_verified':False,'message':'驻车已被普通底盘速度指令取消'}
+            state = getattr(self,'_swerve_drive_state',None)
+            if state is not None:
+                state['parking_preposition'],state['parking_stop_window'] = None,None
+                if old_parking:state['brake_sent'] = False
+        solution = None
+        if model is not None:
+            names = list(self.articulation.dof_names)
+            q = np.asarray(self.articulation.get_joint_positions()).reshape(-1)
+            actual = [q[names.index(m.steering_joint)] for m in model.modules]
+            axis = model.cardinal_axis(vx,vy,wz)
+            state = getattr(self, '_swerve_drive_state', None) or {}
+            locked = state.get('cardinal_preposition') if state.get('cardinal_axis') == axis else None
+            target = requested_steering if requested_steering is not None else (locked.target if locked is not None else None)
+            solution = (model.solve_cardinal(vx,vy,actual,target)
+                        if axis is not None else model.solve(vx,vy,wz,actual))
+            vx, vy, wz = map(float, solution['executed_twist'])
+            if (vx == 0. and vy == 0. and wz == 0. and self._base_cmd is None
+                    and getattr(self, '_swerve_drive_state', None) is None):
+                wi = [names.index(m.wheel_joint) for m in model.modules]
+                si = [names.index(m.steering_joint) for m in model.modules]
+                last = getattr(self, '_swerve_last_stop', None)
+                pose = self._swerve_base_pose()
+                if (last is not None and np.max(abs(pose[:2]-np.asarray(last['base_pose'])[:2])) < .002
+                        and abs((pose[2]-last['base_pose'][2]+np.pi) % (2*np.pi)-np.pi) < .01
+                        and np.max(abs(q[wi]-np.asarray(last['wheel_positions']))) < .015
+                        and np.max(abs(q[si]-np.asarray(last['steering_positions']))) < .01):
+                    # 仍在上一次真实停稳的允许变化范围内，不因速度微振重复唤醒整机。
+                    return {'vx': 0., 'vy': 0., 'wz': 0., 'timeout': float(cfg.get('timeout', .5)),
+                            'mode': 'four_wheel_independent_steering_drive', 'stopped': True,
+                            'steering_reference': getattr(self, '_swerve_reference', None)}
+            if getattr(self, '_swerve_drive_state', None) is None:
+                self._engage_swerve_drive(model)
+        elif vy != 0.:
+            raise ValueError('当前旧差速底盘不支持横移vy')
+        engage = self._base_cmd is None
+        self._base_cmd = {'vx': vx, 'vy': vy, 'wz': wz, 't': time.time()}
+        if requested_steering is not None:
+            self._base_cmd['steering_targets'] = requested_steering.tolist()
+        if engage and (vx != 0.0 or vy != 0.0 or wz != 0.0):
+            # 按当前stage/真实刚体查询sleep，只唤醒睡着的实体。即使把同一组
+            # 速度写回去也属于状态修改；原生wake避免在已醒且抖动时再次触碰它。
+            from scripts.physics_wake import wake_if_sleeping
+            wake = wake_if_sleeping(self)
+            self._swerve_last_wake = wake
+            if not wake['supported'] or wake['sleep_after'] is not False:
+                self._base_cmd = None
+                raise RuntimeError('底盘原生唤醒未验证，未下发速度状态fallback: ' + str(wake))
+        result = {'vx': vx, 'vy': vy, 'wz': wz, 'timeout': float(cfg.get('timeout', .5)),
+                  'mode': 'four_wheel_independent_steering_drive' if model is not None else 'skid_steer_legacy'}
+        if solution is not None:
+            result.update(steering_targets_rad=solution['steering'].tolist(),
+                          wheel_velocity_targets_rad_s=solution['wheel_velocity'].tolist(),
+                          steering_targets_locked=requested_steering is not None,
+                          steering_reference=getattr(self, '_swerve_reference', None))
+        return result
+
+    def _swerve_base_pose(self):
+        position, quaternion = self._link_pose_table()['base_link']
+        w, x, y, z = quaternion
+        yaw = np.arctan2(2*(w*z+x*y), 1-2*(y*y+z*z))
+        return np.array([position[0], position[1], yaw], dtype=float)
+
+    def _swerve_base_ypr(self):
+        _, quaternion = self._link_pose_table()['base_link']
+        w,x,y,z = quaternion
+        return np.array([np.arctan2(2*(w*z+x*y),1-2*(y*y+z*z)),
+                         np.arcsin(np.clip(2*(w*y-z*x),-1.,1.)),
+                         np.arctan2(2*(w*x+y*z),1-2*(x*x+y*y))],dtype=float)
+
+    def _update_swerve_parking(self, model, state, q, velocity):
+        from swerve_base import SteeringPrealignment,BaseSettlingWindow
+        arti = self.articulation
+        wi,si = state['wheel_indices'],state['steering_indices']
+        now = float(self.world.current_time)
+        transition = state.get('parking_preposition')
+        if transition is None:
+            rate = min(float((self._base_cfg or {}).get('steering_preposition_rate_rad_s',.6)),
+                       min(m.steering_max_velocity_rad_s for m in model.modules))
+            transition = SteeringPrealignment(q[si],np.zeros(4),now,
+                max_rate_rad_s=rate,angle_tolerance_rad=np.deg2rad(.5))
+            state['parking_preposition'] = transition
+            state['parking_ypr_start'] = self._swerve_base_ypr().copy()
+        pose = self._swerve_base_pose()
+        command,alignment = transition.update(now,q[si],q[wi],pose)
+        arti.set_joint_velocity_targets(np.zeros((1,4),dtype=np.float32),joint_indices=wi)
+        arti.set_joint_position_targets(command.reshape(1,-1).astype(np.float32),joint_indices=si)
+        verification = None
+        if alignment['ready']:
+            if state.get('parking_stop_window') is None:
+                state['parking_stop_window'] = BaseSettlingWindow()
+            verification = state['parking_stop_window'].update(now,pose,q[si],q[wi])
+        else:
+            state['parking_stop_window'] = None
+        done = bool(verification and verification['settled'] and np.max(abs(q[si]))<np.deg2rad(.5))
+        status = {'phase':'parked' if done else ('verifying' if alignment['ready'] else alignment['stage']),
+            'parking_verified':done,'steering_targets_rad':[0.]*4,
+            'steering_actual_rad':q[si].tolist(),'steering_zero_error_rad':float(np.max(abs(q[si]))),
+            'alignment':alignment,'verification':verification,
+            'base_ypr_start_rad':state['parking_ypr_start'].tolist(),'base_ypr_rad':self._swerve_base_ypr().tolist(),
+            'wheel_velocity_targets_rad_s':[0.]*4,'elapsed_s':now-transition.started,
+            'calibrated_to_user_hardware':False,
+            'message':'四轮已回正并验证停稳' if done else '四轮回正驻车中，滚轮速度保持0'}
+        self._swerve_last_parking = status
+        self._swerve_last_control = dict(status,motion_kind='parking')
+        if done:
+            if state['gain_override']:
+                arti.set_joint_position_targets(q[wi].reshape(1,-1).astype(np.float32),joint_indices=wi)
+                stiffness = np.asarray(arti._physics_view.get_dof_stiffnesses()).reshape(-1).copy()
+                stiffness[wi] = state['saved_stiffness']
+                arti._physics_view.set_dof_stiffnesses(stiffness.reshape(1,-1),[0])
+            self._swerve_last_stop = {'base_pose':pose.tolist(),'wheel_positions':q[wi].tolist(),
+                'steering_positions':q[si].tolist(),'sim_time':now,'verification':verification,
+                'parking_verified':True}
+            status['verified_at_sim_time'] = now
+            self._base_cmd,self._wheel_pos_target,self._swerve_drive_state = None,None,None
+            self._swerve_stop_window = None
+        elif now-transition.started > max(12.,transition.duration+8.):
+            # 有界失败后保持当下舵角并转普通停轮，不能把超时误报驻车完成。
+            arti.set_joint_position_targets(q[si].reshape(1,-1).astype(np.float32),joint_indices=si)
+            self._base_cmd = {'vx':0.,'vy':0.,'wz':0.,'t':time.time()}
+            state['brake_sent'] = False
+            status.update(phase='failed',message='四轮回正驻车超时，已停止，驻车未验收')
+            self._swerve_last_control = dict(status,motion_kind='parking')
+
+    def _update_swerve_velocity(self, model, cmd):
+        arti = self.articulation
+        state = getattr(self, '_swerve_drive_state', None)
+        if state is None:
+            self._engage_swerve_drive(model)
+            state = self._swerve_drive_state
+        wi, si = state['wheel_indices'], state['steering_indices']
+        q = np.asarray(arti.get_joint_positions()).reshape(-1)
+        velocity = np.asarray(arti.get_joint_velocities()).reshape(-1)
+        if not np.isfinite(q[wi+si]).all() or not np.isfinite(velocity[wi+si]).all():
+            arti.set_joint_velocity_targets(np.zeros((1, 4), dtype=np.float32), joint_indices=wi)
+            state['rotation_preposition'] = None
+            state['rotation_applied_speed'] = 0.
+            raise RuntimeError('底盘8关节反馈异常，已撤除轮速目标')
+        if cmd.get('parking'):
+            self._update_swerve_parking(model,state,q,velocity)
+            return
+        stopping = all(abs(cmd.get(axis, 0.)) < 1e-12 for axis in ('vx', 'vy', 'wz'))
+        if stopping:
+            if not state['brake_sent']:
+                arti.set_joint_velocity_targets(np.zeros((1, 4), dtype=np.float32), joint_indices=wi)
+                # 停车一次性保持实测舵角，避免继续追旧目标的满力矩反扭矩；不是打舵回零。
+                arti.set_joint_position_targets(q[si].reshape(1, -1).astype(np.float32), joint_indices=si)
+                state['brake_sent'] = True
+                # 中途停止后再次旋转也须重新验证停轮，不能沿用上次放行状态。
+                state['rotation_preposition'] = None
+                state['rotation_applied_speed'] = 0.
+            # 不猛打舵回零；用位置窗口确认真实停稳，不能把目标0当作实际静止。
+            # 原生高kd下瞬时轮速有0.09～0.207rad/s微振，实际1s根漂移仅约0.1mm。
+            # 阈值是经现场数据核对的仿真判据，非真机规格或按压力标定。
+            now = float(self.world.current_time)
+            if getattr(self, '_swerve_stop_window', None) is None:
+                from swerve_base import BaseSettlingWindow
+                self._swerve_stop_window = BaseSettlingWindow()
+                state['brake_since'] = now
+            pose = self._swerve_base_pose()
+            verification = self._swerve_stop_window.update(now, pose, q[si], q[wi])
+            state['settling_verification'] = verification
+            self._swerve_last_control = {'steering_actual_rad': q[si].tolist(),
+                'wheel_velocity_targets_rad_s': [0.]*4, 'wheel_velocity_actual_rad_s': velocity[wi].tolist(),
+                'stopping': True, 'settling_verification': verification}
+            if verification['settled']:
+                if state['gain_override']:
+                    arti.set_joint_position_targets(q[wi].reshape(1, -1).astype(np.float32), joint_indices=wi)
+                    k = np.asarray(arti._physics_view.get_dof_stiffnesses()).reshape(-1).copy()
+                    k[wi] = state['saved_stiffness']
+                    arti._physics_view.set_dof_stiffnesses(k.reshape(1, -1), [0])
+                self._swerve_last_stop = {'base_pose': pose.tolist(), 'wheel_positions': q[wi].tolist(),
+                    'steering_positions': q[si].tolist(), 'sim_time': now, 'verification': verification}
+                self._base_cmd = None
+                self._wheel_pos_target = None
+                self._swerve_drive_state = None
+                self._swerve_stop_window = None
+            return
+        state['brake_sent'], state['brake_since'] = False, None
+        self._swerve_stop_window = None
+        axis = model.cardinal_axis(cmd['vx'],cmd.get('vy',0.),cmd['wz'])
+        if axis is not None:
+            state['rotation_preposition'] = None
+            state['rotation_applied_speed'] = 0.
+            from swerve_base import SteeringPrealignment
+            now = float(self.world.current_time)
+            transition = state.get('cardinal_preposition')
+            selected_target = None
+            if cmd.get('steering_targets') is not None:
+                selected_target = model.solve_cardinal(cmd['vx'],cmd.get('vy',0.),q[si],cmd['steering_targets'])['steering']
+            target_changed = (transition is not None and selected_target is not None
+                              and not np.array_equal(selected_target,transition.target))
+            if state.get('cardinal_axis') != axis or transition is None or target_changed:
+                solution = model.solve_cardinal(cmd['vx'],cmd.get('vy',0.),q[si],selected_target)
+                # 四舵同步限速；工位当前参考1.2rad/s，未配置时仍用0.6，另受URDF限速。
+                reference_rate = float((self._base_cfg or {}).get('steering_preposition_rate_rad_s',.6))
+                model_rate = min(m.steering_max_velocity_rad_s for m in model.modules)
+                transition = SteeringPrealignment(q[si],solution['steering'],now,
+                                                  max_rate_rad_s=min(reference_rate,model_rate))
+                state['cardinal_axis'],state['cardinal_preposition'] = axis,transition
+                state['prealign_base_ypr_start'] = self._swerve_base_ypr().copy()
+                state['prealign_base_pose_start'] = self._swerve_base_pose().copy()
+                state['cardinal_applied_speed'] = 0.
+                state['cardinal_last_update_time'] = now
+            solution = model.solve_cardinal(cmd['vx'],cmd.get('vy',0.),q[si],transition.target)
+            pose = self._swerve_base_pose()
+            ypr = self._swerve_base_ypr()
+            command,verification = transition.update(now,q[si],q[wi],pose)
+            dt = max(0.,min(now-state.get('cardinal_last_update_time',now),.10))
+            state['cardinal_last_update_time'] = now
+            axis_index = 0 if axis=='x' else 1
+            requested_speed = float(solution['executed_twist'][axis_index])
+            acceleration = float((self._base_cfg or {}).get('cardinal_acceleration_m_s2',.15))
+            if not np.isfinite(acceleration) or acceleration <= 0.:
+                raise ValueError('单轴平移参考加速度必须为有限正数')
+            if verification['ready']:
+                previous = state.get('cardinal_applied_speed',0.)
+                applied_speed = float(previous+np.clip(requested_speed-previous,-acceleration*dt,acceleration*dt))
+            else:
+                applied_speed = 0.
+            # 高层在对舵期间可能已请求巡航速度；真正放行后仍必须从0斜坡，避免骤起。
+            state['cardinal_applied_speed'] = applied_speed
+            speeds = solution['wheel_velocity']*(applied_speed/requested_speed) if abs(requested_speed)>1e-12 else np.zeros(4)
+            executed_twist = np.zeros(3)
+            executed_twist[axis_index] = applied_speed
+            arti.set_joint_position_targets(command.reshape(1,-1).astype(np.float32),joint_indices=si)
+            arti.set_joint_velocity_targets(speeds.reshape(1,-1).astype(np.float32),joint_indices=wi)
+            delta_yaw = float((ypr[0]-state['prealign_base_ypr_start'][0]+np.pi)%(2*np.pi)-np.pi)
+            self._swerve_last_control = {'motion_kind':'cardinal_translation','cardinal_axis':axis,
+                'phase':verification['phase'],'steering_targets_rad':solution['steering'].tolist(),
+                'steering_targets_locked':cmd.get('steering_targets') is not None,
+                'steering_command_rad':command.tolist(),'steering_actual_rad':q[si].tolist(),
+                'rolling_plane_heading_rad_mod_pi':solution['rolling_plane_heading_rad_mod_pi'].tolist(),
+                'actual_rolling_plane_heading_rad_mod_pi':[
+                    float((m.heading_zero+m.steering_sign*value+np.pi/2)%np.pi-np.pi/2)
+                    for m,value in zip(model.modules,q[si])],
+                'commanded_wheel_ground_velocity_base_m_s':[
+                    (speed*m.radius_m*m.wheel_sign*np.array([
+                        np.cos(m.heading_zero+m.steering_sign*value),
+                        np.sin(m.heading_zero+m.steering_sign*value)])).tolist()
+                    for m,value,speed in zip(model.modules,solution['steering'],speeds)],
+                'steering_equivalence_note':'±90关节角配合反向轮速表示同一滚动平面；平移方向以轮胎地面速度向量为准',
+                'wheel_velocity_targets_rad_s':speeds.tolist(),'wheel_velocity_actual_rad_s':velocity[wi].tolist(),
+                'alignment_scale':1. if verification['ready'] else 0.,'prealignment':verification,
+                'requested_twist':[cmd['vx'],cmd.get('vy',0.),cmd['wz']],
+                'executed_twist':executed_twist.tolist(),
+                'reference_acceleration_m_s2':acceleration,
+                'prealign_base_ypr_start_rad':state['prealign_base_ypr_start'].tolist(),
+                'base_ypr_rad':ypr.tolist(),'base_yaw_drift_rad':delta_yaw,
+                'prealign_base_pose_start':state['prealign_base_pose_start'].tolist()}
+            return
+        state['cardinal_axis'],state['cardinal_preposition'] = None,None
+        pure_rotation = abs(cmd['vx']) <= 1e-12 and abs(cmd.get('vy',0.)) <= 1e-12
+        if pure_rotation:
+            from swerve_base import SteeringPrealignment
+            now = float(self.world.current_time)
+            solution = model.solve(0.,0.,cmd['wz'],q[si])
+            transition = state.get('rotation_preposition')
+            if transition is None:
+                reference_rate = float((self._base_cfg or {}).get('steering_preposition_rate_rad_s',.6))
+                model_rate = min(m.steering_max_velocity_rad_s for m in model.modules)
+                transition = SteeringPrealignment(q[si],solution['steering'],now,
+                                                  max_rate_rad_s=min(reference_rate,model_rate))
+                state['rotation_preposition'] = transition
+                state['rotation_applied_speed'] = 0.
+                state['rotation_last_update_time'] = now
+                state['rotation_ypr_start'] = self._swerve_base_ypr().copy()
+                state['rotation_pose_start'] = self._swerve_base_pose().copy()
+            # 极限之外的等价舵角在别的转向范围内可能换支；新目标仍须重新停轮对舵。
+            if np.max(abs(solution['steering']-transition.target)) > 1e-6:
+                reference_rate = float((self._base_cfg or {}).get('steering_preposition_rate_rad_s',.6))
+                model_rate = min(m.steering_max_velocity_rad_s for m in model.modules)
+                transition = SteeringPrealignment(q[si],solution['steering'],now,
+                                                  max_rate_rad_s=min(reference_rate,model_rate))
+                state['rotation_preposition'] = transition
+                state['rotation_applied_speed'] = 0.
+                state['rotation_last_update_time'] = now
+            pose = self._swerve_base_pose()
+            ypr = self._swerve_base_ypr()
+            command,verification = transition.update(now,q[si],q[wi],pose)
+            dt = max(0.,min(now-state.get('rotation_last_update_time',now),.10))
+            state['rotation_last_update_time'] = now
+            requested_speed = float(solution['executed_twist'][2])
+            acceleration = float((self._base_cfg or {}).get('max_yaw_acceleration_rad_s2',.35))
+            if not np.isfinite(acceleration) or acceleration <= 0.:
+                arti.set_joint_velocity_targets(np.zeros((1,4),dtype=np.float32),joint_indices=wi)
+                state['rotation_preposition'] = None
+                state['rotation_applied_speed'] = 0.
+                raise ValueError('原地旋转参考角加速度必须为有限正数')
+            if verification['ready']:
+                previous = state.get('rotation_applied_speed',0.)
+                applied_speed = float(previous+np.clip(requested_speed-previous,-acceleration*dt,acceleration*dt))
+            else:
+                applied_speed = 0.
+            # 只有真实停轮、切线轮向同步轨迹结束且反馈稳定后，才从0开始旋转。
+            state['rotation_applied_speed'] = applied_speed
+            speeds = solution['wheel_velocity']*(applied_speed/requested_speed) if abs(requested_speed)>1e-12 else np.zeros(4)
+            arti.set_joint_position_targets(command.reshape(1,-1).astype(np.float32),joint_indices=si)
+            arti.set_joint_velocity_targets(speeds.reshape(1,-1).astype(np.float32),joint_indices=wi)
+            phase = 'rotating' if verification['ready'] else 'prealign'
+            verification = dict(verification,phase=phase)
+            self._swerve_last_control = {'motion_kind':'in_place_rotation','phase':phase,
+                'steering_targets_rad':transition.target.tolist(),
+                'steering_command_rad':command.tolist(),'steering_actual_rad':q[si].tolist(),
+                'wheel_velocity_targets_rad_s':speeds.tolist(),'wheel_velocity_actual_rad_s':velocity[wi].tolist(),
+                'alignment_scale':1. if verification['ready'] else 0.,'prealignment':verification,
+                'requested_twist':[cmd['vx'],cmd.get('vy',0.),cmd['wz']],
+                'executed_twist':[0.,0.,applied_speed],
+                'reference_yaw_acceleration_rad_s2':acceleration,
+                'prealign_base_ypr_start_rad':state['rotation_ypr_start'].tolist(),
+                'prealign_base_pose_start':state['rotation_pose_start'].tolist(),
+                'base_ypr_rad':ypr.tolist(),
+                'base_yaw_change_rad':float((ypr[0]-state['rotation_ypr_start'][0]+np.pi)%(2*np.pi)-np.pi)}
+            return
+        state['rotation_preposition'] = None
+        state['rotation_applied_speed'] = 0.
+        solution = model.solve(cmd['vx'], cmd.get('vy', 0.), cmd['wz'], q[si])
+        angle_error = float(np.max(abs(solution['steering']-q[si])))
+        # 大角度转向先停轮对舵；小偏差按投影降速，避免尚未对准时横擦地面。
+        alignment = max(0., float(np.cos(angle_error))) if angle_error < .12 else 0.
+        speeds = solution['wheel_velocity']*alignment
+        arti.set_joint_position_targets(solution['steering'].reshape(1, -1).astype(np.float32), joint_indices=si)
+        arti.set_joint_velocity_targets(speeds.reshape(1, -1).astype(np.float32), joint_indices=wi)
+        self._swerve_last_control = {'steering_targets_rad': solution['steering'].tolist(),
+            'steering_actual_rad': q[si].tolist(), 'wheel_velocity_targets_rad_s': speeds.tolist(),
+            'wheel_velocity_actual_rad_s': velocity[wi].tolist(), 'alignment_scale': alignment,
+            'executed_twist': solution['executed_twist'].tolist()}
 
     def _update_base_velocity(self):
-        """底盘速度控制（主循环每帧）：把 (vx, wz) 折算成四轮转速，
-        并积分成轮关节位置目标（虚拟速度模式）。
+        """底盘速度控制（主循环每帧）：四轮八驱走转向位置+原生轮速目标。
+
+        旧差速模型将(vx,wz)折算四轮转速并积分位置目标，以下说明仅限旧模型。
 
         URDF 转换出的轮关节是位置驱动（stiffness≈203 / damping≈0.08），
         直接下速度目标几乎没有力矩，所以逐帧把位置目标前移 ω*dt；
@@ -3476,6 +3992,12 @@ class RobotManager:
             # 失联刹停：速度归零
             cmd["vx"] = 0.0
             cmd["wz"] = 0.0
+        if time.time() - cmd["t"] > float(self._base_cfg.get("timeout", 0.5)):
+            cmd["vy"] = 0.0
+        model = self._get_swerve_model()
+        if model is not None:
+            self._update_swerve_velocity(model, cmd)
+            return
         vx, wz = cmd["vx"], cmd["wz"]
 
         # **速度已经是 0 就彻底撒手**，别再每帧写轮子位置目标。
@@ -3571,6 +4093,9 @@ class RobotManager:
     def _require_robot(self):
         if self.articulation is None:
             raise RuntimeError("机器人未加载，请先调用 load_urdf")
+        from scripts.physics_view_guard import guard
+        if not guard(self, logger):
+            raise RuntimeError(self._physics_view_fault)
 
     def _joint_positions_flat(self):
         """关节位置压平为 list（5.x view API 返回 (M, K)，单机器人压成 (K,)）。"""
@@ -3607,11 +4132,15 @@ class RobotManager:
             # dof_names 顺序 = 指令向量顺序（ROS 桥存在时 joint_names 与之一致）
             names = list(self.articulation.dof_names)
             vals = np.asarray(positions, dtype=np.float32).reshape(-1)
-            if self._base_cmd is not None:
-                keep = [i for i, n in enumerate(names)
-                        if n not in _BASE_WHEEL_JOINTS]
+            if all(name in names for name in _BASE_DRIVE_JOINTS):
+                protected = _BASE_DRIVE_JOINTS
+            elif self._base_cmd is not None:
+                protected = _BASE_WHEEL_JOINTS
             else:
-                keep = list(range(len(names)))
+                protected = ()
+            keep = [i for i, n in enumerate(names) if n not in protected]
+            if not keep:
+                return
             indices = [self.articulation.get_dof_index(names[i])
                        for i in keep]
             # 5.x view API 要求 (M, K)，单机器人 M=1
@@ -3761,8 +4290,10 @@ class RobotManager:
             for n, v in zip(names, positions):
                 if n not in dofs:
                     continue                      # 遥操作端多发的关节，忽略
-                if self._base_cmd is not None and n in _BASE_WHEEL_JOINTS:
-                    continue                      # 轮子归 set_base_velocity 专管
+                protected = (_BASE_DRIVE_JOINTS if all(name in dofs for name in _BASE_DRIVE_JOINTS)
+                             else (_BASE_WHEEL_JOINTS if self._base_cmd is not None else ()))
+                if n in protected:
+                    continue                      # 底盘8关节归set_base_velocity专管
                 keep.append(n)
                 idxs.append(self.articulation.get_dof_index(n))
                 vals.append(float(v))

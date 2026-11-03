@@ -1,0 +1,102 @@
+{
+  "robot_preset": "v3_ctag2f120_rm65_l2",
+  "calibrated_to_user_hardware": false,
+  "source": "当前六轴运输姿态，已通过环境/身体几何路径检查",
+  "by_side": {
+    "left": {
+      "joint_names": [
+        "left_arm_1_joint",
+        "left_arm_2_joint",
+        "left_arm_3_joint",
+        "left_arm_4_joint",
+        "left_arm_5_joint",
+        "left_arm_6_joint"
+      ],
+      "goal_q": [
+        0.825661701866745,
+        0.941562558409476,
+        1.0942844530956488,
+        -1.962223449172079,
+        0.9197456481034864,
+        -0.9723137739035576
+      ]
+    },
+    "right": {
+      "joint_names": [
+        "right_arm_1_joint",
+        "right_arm_2_joint",
+        "right_arm_3_joint",
+        "right_arm_4_joint",
+        "right_arm_5_joint",
+        "right_arm_6_joint"
+      ],
+      "goal_q": [
+        -0.8254911006098666,
+        0.943516309082158,
+        1.0950685811527285,
+        -1.1763221836305526,
+        -0.9213262103744241,
+        0.9684586312908534
+      ]
+    }
+  },
+  "initial_pose_environment_proof": {
+    "safe": true,
+    "minimum_distance_m": 0.48281596170495683,
+    "nearest_by_group": {
+      "left_hand": {
+        "distance_m": 0.742826625688303,
+        "shape_a": "/humanoid/Geometry/base_link/lift_top_link/torso_pitch_link/left_arm_base_link/left_arm_1_link/left_arm_2_link/left_arm_3_link/left_arm_4_link/left_arm_5_link/left_arm_6_link/left_gripper_base_link/left_gripper_left_2_link/left_gripper_left_in_link/ctag2f120_Left_in_Link_1/ctag2f120_Left_in_Link",
+        "shape_b": "/World/ground_plane/geom",
+        "body_a": "/humanoid/Geometry/base_link/lift_top_link/torso_pitch_link/left_arm_base_link/left_arm_1_link/left_arm_2_link/left_arm_3_link/left_arm_4_link/left_arm_5_link/left_arm_6_link/left_gripper_base_link/left_gripper_left_2_link/left_gripper_left_in_link",
+        "body_b": "__static__:/World/ground_plane/geom",
+        "source_a": "collision_api",
+        "source_b": "collision_api",
+        "group": "left_hand"
+      },
+      "left_arm": {
+        "distance_m": 0.48281596170495683,
+        "shape_a": "/World/Cabinet/CabinetBody/CabinetBody",
+        "shape_b": "/humanoid/Geometry/base_link/lift_top_link/torso_pitch_link/left_arm_base_link/left_arm_1_link/rm65_link_1_1/rm65_link_1",
+        "body_a": "__static__:/World/Cabinet/CabinetBody/CabinetBody",
+        "body_b": "/humanoid/Geometry/base_link/lift_top_link/torso_pitch_link/left_arm_base_link/left_arm_1_link",
+        "source_a": "visual_envelope",
+        "source_b": "collision_api",
+        "group": "left_arm"
+      },
+      "right_hand": {
+        "distance_m": 0.7424379620738353,
+        "shape_a": "/humanoid/Geometry/base_link/lift_top_link/torso_pitch_link/right_arm_base_link/right_arm_1_link/right_arm_2_link/right_arm_3_link/right_arm_4_link/right_arm_5_link/right_arm_6_link/right_gripper_base_link/right_gripper_left_2_link/right_gripper_left_in_link/ctag2f120_Left_in_Link_1/ctag2f120_Left_in_Link",
+        "shape_b": "/World/ground_plane/geom",
+        "body_a": "/humanoid/Geometry/base_link/lift_top_link/torso_pitch_link/right_arm_base_link/right_arm_1_link/right_arm_2_link/right_arm_3_link/right_arm_4_link/right_arm_5_link/right_arm_6_link/right_gripper_base_link/right_gripper_left_2_link/right_gripper_left_in_link",
+        "body_b": "__static__:/World/ground_plane/geom",
+        "source_a": "collision_api",
+        "source_b": "collision_api",
+        "group": "right_hand"
+      },
+      "right_arm": {
+        "distance_m": 0.5332922496865832,
+        "shape_a": "/humanoid/Geometry/base_link/lift_top_link/torso_pitch_link/right_arm_base_link/right_arm_1_link/right_arm_2_link/rm65_link_2_1/rm65_link_2",
+        "shape_b": "/World/L3Station/Board",
+        "body_a": "/humanoid/Geometry/base_link/lift_top_link/torso_pitch_link/right_arm_base_link/right_arm_1_link/right_arm_2_link",
+        "body_b": "__static__:/World/L3Station/Board",
+        "source_a": "collision_api",
+        "source_b": "collision_api",
+        "group": "right_arm"
+      }
+    },
+    "violations": [],
+    "min_clearance_m": 0.05,
+    "query_seconds": 0.009596070973202586,
+    "coal_distance_calls": 24,
+    "robot_shapes": 96,
+    "all_shapes": 179,
+    "visual_envelopes": 1,
+    "capture_time": 2942.000153437257,
+    "current_time": 3332.275173791684,
+    "actual_physics_pose": true,
+    "self_collision_solver_changed": false
+  },
+  "source_urdf_sha256": "324c787801c51599a49816b7c705cfcb035b38b99b6f475eeef550b4f05cdea2",
+  "source_usd_sha256": "88673b0dcda6dee26af16947e73923d66c3ba61219b22b7e62b11bae3e303e45"
+}

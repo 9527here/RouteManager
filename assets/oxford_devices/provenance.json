@@ -1,0 +1,144 @@
+{
+  "repository": "https://github.com/ori-arg/manipulation_playground",
+  "revision": "3a5b26c785709ffb88048c917d6de84d234bce72",
+  "license": "BSD-3-Clause",
+  "devices": [
+    "e_stop_button",
+    "isolator_switch",
+    "safety_switch"
+  ],
+  "files": [
+    {
+      "path": "upstream/LICENSE",
+      "url": "https://raw.githubusercontent.com/ori-arg/manipulation_playground/3a5b26c785709ffb88048c917d6de84d234bce72/LICENSE",
+      "bytes": 1542,
+      "sha256": "4d75e64ea451ad5bd677739bd5734fad788a9336de84310811a0d78985eb4a41"
+    },
+    {
+      "path": "upstream/README.md",
+      "url": "https://raw.githubusercontent.com/ori-arg/manipulation_playground/3a5b26c785709ffb88048c917d6de84d234bce72/README.md",
+      "bytes": 8197,
+      "sha256": "a8aaa595346dc5f9edb8368108b8d3a0b0302adb8eb43937fe935f616a06d8f3"
+    },
+    {
+      "path": "upstream/manipulation_playground_articulated_devices/devices/e_stop_button/controllers/e_stop_button_controllers.yaml",
+      "url": "https://raw.githubusercontent.com/ori-arg/manipulation_playground/3a5b26c785709ffb88048c917d6de84d234bce72/manipulation_playground_articulated_devices/devices/e_stop_button/controllers/e_stop_button_controllers.yaml",
+      "bytes": 699,
+      "sha256": "ccb9b73c8b4f3928b3735f93323fc8d7fbf08e020d4f42daf8a4ce4854f1d696"
+    },
+    {
+      "path": "upstream/manipulation_playground_articulated_devices/devices/e_stop_button/launch/spawn_e_stop_button.launch",
+      "url": "https://raw.githubusercontent.com/ori-arg/manipulation_playground/3a5b26c785709ffb88048c917d6de84d234bce72/manipulation_playground_articulated_devices/devices/e_stop_button/launch/spawn_e_stop_button.launch",
+      "bytes": 2588,
+      "sha256": "5d0fe38b63003760809b7045be40ee183de169f585aa666bbaf912903507ee3a"
+    },
+    {
+      "path": "upstream/manipulation_playground_articulated_devices/devices/e_stop_button/model/button.gazebo",
+      "url": "https://raw.githubusercontent.com/ori-arg/manipulation_playground/3a5b26c785709ffb88048c917d6de84d234bce72/manipulation_playground_articulated_devices/devices/e_stop_button/model/button.gazebo",
+      "bytes": 755,
+      "sha256": "385a4416e1b4f6988f523e8e1b283496eec41a5e64dd6fc6097527142601eaa7"
+    },
+    {
+      "path": "upstream/manipulation_playground_articulated_devices/devices/e_stop_button/model/e_stop_button.urdf.xacro",
+      "url": "https://raw.githubusercontent.com/ori-arg/manipulation_playground/3a5b26c785709ffb88048c917d6de84d234bce72/manipulation_playground_articulated_devices/devices/e_stop_button/model/e_stop_button.urdf.xacro",
+      "bytes": 6906,
+      "sha256": "cac9a167f235bbe53a04a413599415ac8c5dda6cf3f326ed37ca1dbcecb27c60"
+    },
+    {
+      "path": "upstream/manipulation_playground_articulated_devices/devices/e_stop_button/model/materials.xacro",
+      "url": "https://raw.githubusercontent.com/ori-arg/manipulation_playground/3a5b26c785709ffb88048c917d6de84d234bce72/manipulation_playground_articulated_devices/devices/e_stop_button/model/materials.xacro",
+      "bytes": 785,
+      "sha256": "323f8d9f4d95c077228911327e81c4fb9ab46ceb077b0a880009c9f696eba0d4"
+    },
+    {
+      "path": "upstream/manipulation_playground_articulated_devices/devices/e_stop_button/scripts/e_stop_button_actuation_node.py",
+      "url": "https://raw.githubusercontent.com/ori-arg/manipulation_playground/3a5b26c785709ffb88048c917d6de84d234bce72/manipulation_playground_articulated_devices/devices/e_stop_button/scripts/e_stop_button_actuation_node.py",
+      "bytes": 1044,
+      "sha256": "1a11f89cd948a311c04130cade56db600fa37178dfb52ea1615f1e5443712275"
+    },
+    {
+      "path": "upstream/manipulation_playground_articulated_devices/devices/isolator_switch/controllers/isolator_switch_controllers.yaml",
+      "url": "https://raw.githubusercontent.com/ori-arg/manipulation_playground/3a5b26c785709ffb88048c917d6de84d234bce72/manipulation_playground_articulated_devices/devices/isolator_switch/controllers/isolator_switch_controllers.yaml",
+      "bytes": 561,
+      "sha256": "f77d685395048276153444e119e750b7c860efd565bdf1869001281fb2fcbebb"
+    },
+    {
+      "path": "upstream/manipulation_playground_articulated_devices/devices/isolator_switch/launch/spawn_isolator_switch.launch",
+      "url": "https://raw.githubusercontent.com/ori-arg/manipulation_playground/3a5b26c785709ffb88048c917d6de84d234bce72/manipulation_playground_articulated_devices/devices/isolator_switch/launch/spawn_isolator_switch.launch",
+      "bytes": 2621,
+      "sha256": "c2c13ddc5721abe453a85e55738483c94de95b113e7f4eb6a406cbe4582bede6"
+    },
+    {
+      "path": "upstream/manipulation_playground_articulated_devices/devices/isolator_switch/model/isolator_switch.urdf.xacro",
+      "url": "https://raw.githubusercontent.com/ori-arg/manipulation_playground/3a5b26c785709ffb88048c917d6de84d234bce72/manipulation_playground_articulated_devices/devices/isolator_switch/model/isolator_switch.urdf.xacro",
+      "bytes": 6226,
+      "sha256": "a73d9b08b12cf9c9bf68a26a3cc26dc08ecd0be944ed22cb904de82c1b801f73"
+    },
+    {
+      "path": "upstream/manipulation_playground_articulated_devices/devices/isolator_switch/model/materials.xacro",
+      "url": "https://raw.githubusercontent.com/ori-arg/manipulation_playground/3a5b26c785709ffb88048c917d6de84d234bce72/manipulation_playground_articulated_devices/devices/isolator_switch/model/materials.xacro",
+      "bytes": 785,
+      "sha256": "323f8d9f4d95c077228911327e81c4fb9ab46ceb077b0a880009c9f696eba0d4"
+    },
+    {
+      "path": "upstream/manipulation_playground_articulated_devices/devices/isolator_switch/model/switch.gazebo",
+      "url": "https://raw.githubusercontent.com/ori-arg/manipulation_playground/3a5b26c785709ffb88048c917d6de84d234bce72/manipulation_playground_articulated_devices/devices/isolator_switch/model/switch.gazebo",
+      "bytes": 748,
+      "sha256": "584a6d6855529102ededd13912b4c12bc019517dc43628dc9da8e0e26b8b114d"
+    },
+    {
+      "path": "upstream/manipulation_playground_articulated_devices/devices/isolator_switch/scripts/isolator_switch_actuation_node.py",
+      "url": "https://raw.githubusercontent.com/ori-arg/manipulation_playground/3a5b26c785709ffb88048c917d6de84d234bce72/manipulation_playground_articulated_devices/devices/isolator_switch/scripts/isolator_switch_actuation_node.py",
+      "bytes": 969,
+      "sha256": "1da6f9f8cd08251f589299a9e042974ddcb307ff3346cf5d9f7db647818b95a8"
+    },
+    {
+      "path": "upstream/manipulation_playground_articulated_devices/devices/safety_switch/controllers/safety_switch_controllers.yaml",
+      "url": "https://raw.githubusercontent.com/ori-arg/manipulation_playground/3a5b26c785709ffb88048c917d6de84d234bce72/manipulation_playground_articulated_devices/devices/safety_switch/controllers/safety_switch_controllers.yaml",
+      "bytes": 553,
+      "sha256": "8fbf4595afeadd977aac09bd8e8a6020070ab4ffe2adf89b1204363310f06cf4"
+    },
+    {
+      "path": "upstream/manipulation_playground_articulated_devices/devices/safety_switch/launch/spawn_safety_switch.launch",
+      "url": "https://raw.githubusercontent.com/ori-arg/manipulation_playground/3a5b26c785709ffb88048c917d6de84d234bce72/manipulation_playground_articulated_devices/devices/safety_switch/launch/spawn_safety_switch.launch",
+      "bytes": 2553,
+      "sha256": "a7c5a4fff9b563f48d85693c2b80c09a887d41411bc1fe8761dec2c20f079a84"
+    },
+    {
+      "path": "upstream/manipulation_playground_articulated_devices/devices/safety_switch/model/HNF361_safety_switch.gazebo",
+      "url": "https://raw.githubusercontent.com/ori-arg/manipulation_playground/3a5b26c785709ffb88048c917d6de84d234bce72/manipulation_playground_articulated_devices/devices/safety_switch/model/HNF361_safety_switch.gazebo",
+      "bytes": 511,
+      "sha256": "419e9dde4b1c996a78c8d330e80f59a4f2c0fe75f097d9f0de163ca8fbc64ca5"
+    },
+    {
+      "path": "upstream/manipulation_playground_articulated_devices/devices/safety_switch/model/HNF361_safety_switch_base.dae",
+      "url": "https://raw.githubusercontent.com/ori-arg/manipulation_playground/3a5b26c785709ffb88048c917d6de84d234bce72/manipulation_playground_articulated_devices/devices/safety_switch/model/HNF361_safety_switch_base.dae",
+      "bytes": 2253455,
+      "sha256": "6c9a9b757c32f3cecfc6ec7cfdadf26303c7c3dab37a6e5597e609624ffe0c89"
+    },
+    {
+      "path": "upstream/manipulation_playground_articulated_devices/devices/safety_switch/model/HNF361_safety_switch_lever.dae",
+      "url": "https://raw.githubusercontent.com/ori-arg/manipulation_playground/3a5b26c785709ffb88048c917d6de84d234bce72/manipulation_playground_articulated_devices/devices/safety_switch/model/HNF361_safety_switch_lever.dae",
+      "bytes": 2398553,
+      "sha256": "01a2170d30f2a9132cd075330e99c9e4af5bb89b816aeffa672dbf7ded0a0891"
+    },
+    {
+      "path": "upstream/manipulation_playground_articulated_devices/devices/safety_switch/model/safety_switch.urdf.xacro",
+      "url": "https://raw.githubusercontent.com/ori-arg/manipulation_playground/3a5b26c785709ffb88048c917d6de84d234bce72/manipulation_playground_articulated_devices/devices/safety_switch/model/safety_switch.urdf.xacro",
+      "bytes": 4830,
+      "sha256": "7c4a476271ecac0889c3bbc88e5c6372d5d12629fede3d398035c75b9d4d8c63"
+    },
+    {
+      "path": "upstream/manipulation_playground_articulated_devices/devices/safety_switch/scripts/safety_switch_actuation_node.py",
+      "url": "https://raw.githubusercontent.com/ori-arg/manipulation_playground/3a5b26c785709ffb88048c917d6de84d234bce72/manipulation_playground_articulated_devices/devices/safety_switch/scripts/safety_switch_actuation_node.py",
+      "bytes": 970,
+      "sha256": "c011e50bd82094e7431ba5585f3e03435bff7190283bd033cd4d2ac0e7148d66"
+    },
+    {
+      "path": "upstream/manipulation_playground_articulated_devices/package.xml",
+      "url": "https://raw.githubusercontent.com/ori-arg/manipulation_playground/3a5b26c785709ffb88048c917d6de84d234bce72/manipulation_playground_articulated_devices/package.xml",
+      "bytes": 1042,
+      "sha256": "03b25c51aba60baea1ed58a3d96bd9e513b2c124c18e3486e4dd5b0bbbf67626"
+    }
+  ]
+}

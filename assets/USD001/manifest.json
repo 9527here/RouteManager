@@ -1,0 +1,757 @@
+{
+  "source": "/home/jy/下载/USD001",
+  "files": [
+    {
+      "file": "001/001.usdc",
+      "sha256": "91e78f803babe144e5ab05f1032eb44a223c25450e55a102a385381e306cb2f0",
+      "bytes": 159180
+    },
+    {
+      "file": "001/textures/color_0C0C0C.exr",
+      "sha256": "bf67d7978d89a0f3a807ecbfce8f3ac36579900aabd8810c15d9f99b2ad73819",
+      "bytes": 461
+    },
+    {
+      "file": "001.usdz",
+      "sha256": "5bf05b5c6a4a744c42afc182f31c93971cb50439f0276d593c17c1d95c23efaa",
+      "bytes": 160055
+    },
+    {
+      "file": "002.usdz",
+      "sha256": "2692bb98a09d451a1e0fee5906ea3947eadf70456eca1f33780b1fca9a936335",
+      "bytes": 2173163
+    },
+    {
+      "file": "003.usdz",
+      "sha256": "253f4acbf25d26e0953ecb9b21caed3001455365cbed584fb79ea20df7652aa4",
+      "bytes": 894390
+    },
+    {
+      "file": "004.usdz",
+      "sha256": "dedd77af01926c0cf6661968446d643a54e2c3ee180557c1a2b965a09fc77a71",
+      "bytes": 484565
+    },
+    {
+      "file": "005.usdz",
+      "sha256": "6960ba801b3de3748aae389a2bd69fd6745c379c18b119343eafc05104fba268",
+      "bytes": 892166
+    },
+    {
+      "file": "006.usdz",
+      "sha256": "3fd49d55e7bc44694dd4560bea550fb75475336a92c77ceff1a37261efd1a967",
+      "bytes": 1147222
+    },
+    {
+      "file": "007.usdz",
+      "sha256": "4fa1b9130b4269568cc1581e9684632eef96c322689ebe72a74d4a89a4dc0779",
+      "bytes": 85607
+    },
+    {
+      "file": "008.usdz",
+      "sha256": "1e96a61d22564db81de27bdf94934e358a8f506ce51dea41a3f2e947d2f45acf",
+      "bytes": 5180
+    },
+    {
+      "file": "009.usdz",
+      "sha256": "4c5d84d8af120f1dd950c706c4be371a9ccd1a7057cf19e3c2190d1b1d3fe850",
+      "bytes": 53036
+    },
+    {
+      "file": "010.usdz",
+      "sha256": "58712ac9948269722a29a24d5247c0ac539fe18f1126badd130385d7cbe619c6",
+      "bytes": 833391
+    },
+    {
+      "file": "011.usdz",
+      "sha256": "35c5a953dd5fa0167d13895ba63dfa63e98db3437cf61877ef4892df6d5b52b7",
+      "bytes": 65389
+    },
+    {
+      "file": "textures/119_r020_1.jpg",
+      "sha256": "6e29a00db66c770c24d4bc5a6830ec67a702098d1d375496b195f89763161c23",
+      "bytes": 28277
+    },
+    {
+      "file": "textures/163_r017_1.jpg",
+      "sha256": "e4e5df8f0dfc3e6fd4d859d740ac4d52d8cc393008e282be804243d023846be1",
+      "bytes": 13942
+    },
+    {
+      "file": "textures/51_r026_1.jpg",
+      "sha256": "47c290cdaab20de517fb548d564f5bf2053aacfb1acdc9048b89610de8c79830",
+      "bytes": 76663
+    },
+    {
+      "file": "textures/54_r029_1.jpg",
+      "sha256": "37a419e75c64c0f4baf1156c89952b89dee0e4fdea330e1b91b5968f016bab7e",
+      "bytes": 38181
+    },
+    {
+      "file": "textures/color_0C0C0C.exr",
+      "sha256": "bf67d7978d89a0f3a807ecbfce8f3ac36579900aabd8810c15d9f99b2ad73819",
+      "bytes": 461
+    }
+  ],
+  "assets": [
+    {
+      "id": "001",
+      "file": "001.usdz",
+      "sha256": "5bf05b5c6a4a744c42afc182f31c93971cb50439f0276d593c17c1d95c23efaa",
+      "bytes": 160055,
+      "crc_ok": true,
+      "package_members": [
+        "001.usdc",
+        "textures/color_0C0C0C.exr"
+      ],
+      "default_prim": "/root",
+      "meters_per_unit": 1.0,
+      "up_axis": "Z",
+      "bounds_min": [
+        -0.11803457885980606,
+        -0.22342181205749512,
+        -0.24960587918758392
+      ],
+      "bounds_max": [
+        0.15033195912837982,
+        0.2179763913154602,
+        0.27103692293167114
+      ],
+      "size_m_authored": [
+        0.2683665379881859,
+        0.4413982033729553,
+        0.5206428021192551
+      ],
+      "types": {
+        "Xform": 2,
+        "Mesh": 1,
+        "GeomSubset": 4,
+        "Scope": 1,
+        "Material": 4,
+        "Shader": 4,
+        "DomeLight": 1
+      },
+      "meshes": [
+        "/root/_001/Cylinder"
+      ],
+      "joint_count": 0,
+      "rigid_body_count": 0,
+      "collision_count": 0,
+      "shader_types": [
+        "UsdPreviewSurface"
+      ],
+      "unresolved_dependencies": [],
+      "dependency_count": 1,
+      "status": "visual_only",
+      "semantic_name": null,
+      "normalized_file": "normalized/001.usda",
+      "gallery_prim": "/World/Asset001",
+      "gallery_translate": [
+        -0.01614869013428688,
+        0.002722710371017456,
+        2.749605879187584
+      ]
+    },
+    {
+      "id": "002",
+      "file": "002.usdz",
+      "sha256": "2692bb98a09d451a1e0fee5906ea3947eadf70456eca1f33780b1fca9a936335",
+      "bytes": 2173163,
+      "crc_ok": true,
+      "package_members": [
+        "002.usdc",
+        "textures/color_0C0C0C.exr",
+        "textures/163_r017_1.jpg"
+      ],
+      "default_prim": "/root",
+      "meters_per_unit": 1.0,
+      "up_axis": "Z",
+      "bounds_min": [
+        -0.11478231847286224,
+        -0.2025945782661438,
+        -0.45530179142951965
+      ],
+      "bounds_max": [
+        0.12535744905471802,
+        0.20259064435958862,
+        0.4549209475517273
+      ],
+      "size_m_authored": [
+        0.24013976752758026,
+        0.4051852226257324,
+        0.910222738981247
+      ],
+      "types": {
+        "Xform": 2,
+        "Mesh": 1,
+        "GeomSubset": 6,
+        "Scope": 1,
+        "Material": 6,
+        "Shader": 8,
+        "DomeLight": 1
+      },
+      "meshes": [
+        "/root/_002/Meter01_001"
+      ],
+      "joint_count": 0,
+      "rigid_body_count": 0,
+      "collision_count": 0,
+      "shader_types": [
+        "UsdPreviewSurface",
+        "UsdPrimvarReader_float2",
+        "UsdUVTexture"
+      ],
+      "unresolved_dependencies": [],
+      "dependency_count": 2,
+      "status": "visual_only",
+      "semantic_name": null,
+      "normalized_file": "normalized/002.usda",
+      "gallery_prim": "/World/Asset002",
+      "gallery_translate": [
+        -0.005287565290927887,
+        1.0500019669532776,
+        2.9553017914295197
+      ]
+    },
+    {
+      "id": "003",
+      "file": "003.usdz",
+      "sha256": "253f4acbf25d26e0953ecb9b21caed3001455365cbed584fb79ea20df7652aa4",
+      "bytes": 894390,
+      "crc_ok": true,
+      "package_members": [
+        "003.usdc",
+        "textures/color_0C0C0C.exr",
+        "textures/119_r020_1.jpg"
+      ],
+      "default_prim": "/root",
+      "meters_per_unit": 1.0,
+      "up_axis": "Z",
+      "bounds_min": [
+        -0.31230589747428894,
+        -0.3113013505935669,
+        -0.42738568782806396
+      ],
+      "bounds_max": [
+        0.3102215528488159,
+        0.3113265633583069,
+        0.47902756929397583
+      ],
+      "size_m_authored": [
+        0.6225274503231049,
+        0.6226279139518738,
+        0.9064132571220398
+      ],
+      "types": {
+        "Xform": 2,
+        "Mesh": 1,
+        "GeomSubset": 7,
+        "Scope": 1,
+        "Material": 7,
+        "Shader": 9,
+        "DomeLight": 1
+      },
+      "meshes": [
+        "/root/_003/Meter01_002"
+      ],
+      "joint_count": 0,
+      "rigid_body_count": 0,
+      "collision_count": 0,
+      "shader_types": [
+        "UsdPreviewSurface",
+        "UsdPrimvarReader_float2",
+        "UsdUVTexture"
+      ],
+      "unresolved_dependencies": [],
+      "dependency_count": 2,
+      "status": "visual_only",
+      "semantic_name": null,
+      "normalized_file": "normalized/003.usda",
+      "gallery_prim": "/World/Asset003",
+      "gallery_translate": [
+        0.0010421723127365112,
+        2.09998739361763,
+        2.927385687828064
+      ]
+    },
+    {
+      "id": "004",
+      "file": "004.usdz",
+      "sha256": "dedd77af01926c0cf6661968446d643a54e2c3ee180557c1a2b965a09fc77a71",
+      "bytes": 484565,
+      "crc_ok": true,
+      "package_members": [
+        "004.usdc",
+        "textures/color_0C0C0C.exr",
+        "textures/119_r020_1.jpg"
+      ],
+      "default_prim": "/root",
+      "meters_per_unit": 1.0,
+      "up_axis": "Z",
+      "bounds_min": [
+        -0.12274828553199768,
+        -0.1598469614982605,
+        -0.4534985423088074
+      ],
+      "bounds_max": [
+        0.13575716316699982,
+        0.15981467068195343,
+        0.45291459560394287
+      ],
+      "size_m_authored": [
+        0.2585054486989975,
+        0.31966163218021393,
+        0.9064131379127502
+      ],
+      "types": {
+        "Xform": 2,
+        "Mesh": 1,
+        "GeomSubset": 7,
+        "Scope": 1,
+        "Material": 7,
+        "Shader": 9,
+        "DomeLight": 1
+      },
+      "meshes": [
+        "/root/_004/Meter01_004"
+      ],
+      "joint_count": 0,
+      "rigid_body_count": 0,
+      "collision_count": 0,
+      "shader_types": [
+        "UsdPreviewSurface",
+        "UsdPrimvarReader_float2",
+        "UsdUVTexture"
+      ],
+      "unresolved_dependencies": [],
+      "dependency_count": 2,
+      "status": "visual_only",
+      "semantic_name": null,
+      "normalized_file": "normalized/004.usda",
+      "gallery_prim": "/World/Asset004",
+      "gallery_translate": [
+        -0.006504438817501068,
+        3.150016145408154,
+        2.9534985423088074
+      ]
+    },
+    {
+      "id": "005",
+      "file": "005.usdz",
+      "sha256": "6960ba801b3de3748aae389a2bd69fd6745c379c18b119343eafc05104fba268",
+      "bytes": 892166,
+      "crc_ok": true,
+      "package_members": [
+        "005.usdc",
+        "textures/color_0C0C0C.exr"
+      ],
+      "default_prim": "/root",
+      "meters_per_unit": 1.0,
+      "up_axis": "Z",
+      "bounds_min": [
+        -0.12231311947107315,
+        -0.367656409740448,
+        -0.4534211754798889
+      ],
+      "bounds_max": [
+        0.13593924045562744,
+        0.3678509593009949,
+        0.45299190282821655
+      ],
+      "size_m_authored": [
+        0.2582523599267006,
+        0.7355073690414429,
+        0.9064130783081055
+      ],
+      "types": {
+        "Xform": 2,
+        "Mesh": 1,
+        "GeomSubset": 6,
+        "Scope": 1,
+        "Material": 6,
+        "Shader": 6,
+        "DomeLight": 1
+      },
+      "meshes": [
+        "/root/_005/Meter01_008"
+      ],
+      "joint_count": 0,
+      "rigid_body_count": 0,
+      "collision_count": 0,
+      "shader_types": [
+        "UsdPreviewSurface"
+      ],
+      "unresolved_dependencies": [],
+      "dependency_count": 1,
+      "status": "visual_only",
+      "semantic_name": null,
+      "normalized_file": "normalized/005.usda",
+      "gallery_prim": "/World/Asset005",
+      "gallery_translate": [
+        -0.006813060492277145,
+        -9.72747802734375e-05,
+        1.703421175479889
+      ]
+    },
+    {
+      "id": "006",
+      "file": "006.usdz",
+      "sha256": "3fd49d55e7bc44694dd4560bea550fb75475336a92c77ceff1a37261efd1a967",
+      "bytes": 1147222,
+      "crc_ok": true,
+      "package_members": [
+        "006.usdc",
+        "textures/color_0C0C0C.exr",
+        "textures/119_r020_1.jpg"
+      ],
+      "default_prim": "/root",
+      "meters_per_unit": 1.0,
+      "up_axis": "Z",
+      "bounds_min": [
+        -0.2616216838359833,
+        -0.12137233465909958,
+        -0.43036696314811707
+      ],
+      "bounds_max": [
+        0.25988247990608215,
+        0.12136679887771606,
+        0.4760461449623108
+      ],
+      "size_m_authored": [
+        0.5215041637420654,
+        0.24273913353681564,
+        0.9064131081104279
+      ],
+      "types": {
+        "Xform": 2,
+        "Mesh": 1,
+        "GeomSubset": 7,
+        "Scope": 1,
+        "Material": 7,
+        "Shader": 9,
+        "DomeLight": 1
+      },
+      "meshes": [
+        "/root/_006/Meter01_012"
+      ],
+      "joint_count": 0,
+      "rigid_body_count": 0,
+      "collision_count": 0,
+      "shader_types": [
+        "UsdPreviewSurface",
+        "UsdPrimvarReader_float2",
+        "UsdUVTexture"
+      ],
+      "unresolved_dependencies": [],
+      "dependency_count": 2,
+      "status": "visual_only",
+      "semantic_name": null,
+      "normalized_file": "normalized/006.usda",
+      "gallery_prim": "/World/Asset006",
+      "gallery_translate": [
+        0.0008696019649505615,
+        1.0500027678906918,
+        1.680366963148117
+      ]
+    },
+    {
+      "id": "007",
+      "file": "007.usdz",
+      "sha256": "4fa1b9130b4269568cc1581e9684632eef96c322689ebe72a74d4a89a4dc0779",
+      "bytes": 85607,
+      "crc_ok": true,
+      "package_members": [
+        "007.usdc",
+        "textures/color_0C0C0C.exr",
+        "textures/51_r026_1.jpg"
+      ],
+      "default_prim": "/root",
+      "meters_per_unit": 1.0,
+      "up_axis": "Z",
+      "bounds_min": [
+        -0.030244790017604828,
+        -0.08451665937900543,
+        -0.11153869330883026
+      ],
+      "bounds_max": [
+        0.031093720346689224,
+        0.08449409902095795,
+        0.11165763437747955
+      ],
+      "size_m_authored": [
+        0.06133851036429405,
+        0.16901075839996338,
+        0.22319632768630981
+      ],
+      "types": {
+        "Xform": 2,
+        "Mesh": 1,
+        "GeomSubset": 3,
+        "Scope": 1,
+        "Material": 3,
+        "Shader": 5,
+        "DomeLight": 1
+      },
+      "meshes": [
+        "/root/_007/Meter01_027"
+      ],
+      "joint_count": 0,
+      "rigid_body_count": 0,
+      "collision_count": 0,
+      "shader_types": [
+        "UsdPreviewSurface",
+        "UsdPrimvarReader_float2",
+        "UsdUVTexture"
+      ],
+      "unresolved_dependencies": [],
+      "dependency_count": 2,
+      "status": "visual_only",
+      "semantic_name": null,
+      "normalized_file": "normalized/007.usda",
+      "gallery_prim": "/World/Asset007",
+      "gallery_translate": [
+        -0.0004244651645421982,
+        2.100011280179024,
+        1.3615386933088303
+      ]
+    },
+    {
+      "id": "008",
+      "file": "008.usdz",
+      "sha256": "1e96a61d22564db81de27bdf94934e358a8f506ce51dea41a3f2e947d2f45acf",
+      "bytes": 5180,
+      "crc_ok": true,
+      "package_members": [
+        "008.usdc",
+        "textures/color_0C0C0C.exr"
+      ],
+      "default_prim": "/root",
+      "meters_per_unit": 1.0,
+      "up_axis": "Z",
+      "bounds_min": [
+        -0.03020135685801506,
+        -0.08450813591480255,
+        -0.11159832030534744
+      ],
+      "bounds_max": [
+        0.031012944877147675,
+        0.08450262248516083,
+        0.11159802228212357
+      ],
+      "size_m_authored": [
+        0.061214301735162735,
+        0.16901075839996338,
+        0.223196342587471
+      ],
+      "types": {
+        "Xform": 2,
+        "Mesh": 1,
+        "GeomSubset": 2,
+        "Scope": 1,
+        "Material": 2,
+        "Shader": 2,
+        "DomeLight": 1
+      },
+      "meshes": [
+        "/root/_008/Meter01_028"
+      ],
+      "joint_count": 0,
+      "rigid_body_count": 0,
+      "collision_count": 0,
+      "shader_types": [
+        "UsdPreviewSurface"
+      ],
+      "unresolved_dependencies": [],
+      "dependency_count": 1,
+      "status": "visual_only",
+      "semantic_name": null,
+      "normalized_file": "normalized/008.usda",
+      "gallery_prim": "/World/Asset008",
+      "gallery_translate": [
+        -0.00040579400956630707,
+        3.150002756714821,
+        1.3615983203053474
+      ]
+    },
+    {
+      "id": "009",
+      "file": "009.usdz",
+      "sha256": "4c5d84d8af120f1dd950c706c4be371a9ccd1a7057cf19e3c2190d1b1d3fe850",
+      "bytes": 53036,
+      "crc_ok": true,
+      "package_members": [
+        "009.usdc",
+        "textures/color_0C0C0C.exr",
+        "textures/54_r029_1.jpg"
+      ],
+      "default_prim": "/root",
+      "meters_per_unit": 1.0,
+      "up_axis": "Z",
+      "bounds_min": [
+        -0.057759013026952744,
+        -0.0984853208065033,
+        -0.1753334403038025
+      ],
+      "bounds_max": [
+        0.058370739221572876,
+        0.09844890981912613,
+        0.15167556703090668
+      ],
+      "size_m_authored": [
+        0.11612975224852562,
+        0.19693423062562943,
+        0.32700900733470917
+      ],
+      "types": {
+        "Xform": 2,
+        "Mesh": 1,
+        "GeomSubset": 3,
+        "Scope": 1,
+        "Material": 3,
+        "Shader": 5,
+        "DomeLight": 1
+      },
+      "meshes": [
+        "/root/_009/Meter01_024"
+      ],
+      "joint_count": 0,
+      "rigid_body_count": 0,
+      "collision_count": 0,
+      "shader_types": [
+        "UsdPreviewSurface",
+        "UsdPrimvarReader_float2",
+        "UsdUVTexture"
+      ],
+      "unresolved_dependencies": [],
+      "dependency_count": 2,
+      "status": "visual_only",
+      "semantic_name": null,
+      "normalized_file": "normalized/009.usda",
+      "gallery_prim": "/World/Asset009",
+      "gallery_translate": [
+        -0.0003058630973100662,
+        1.8205493688583374e-05,
+        0.1753334403038025
+      ]
+    },
+    {
+      "id": "010",
+      "file": "010.usdz",
+      "sha256": "58712ac9948269722a29a24d5247c0ac539fe18f1126badd130385d7cbe619c6",
+      "bytes": 833391,
+      "crc_ok": true,
+      "package_members": [
+        "010.usdc",
+        "textures/color_0C0C0C.exr",
+        "textures/54_r029_1.jpg"
+      ],
+      "default_prim": "/root",
+      "meters_per_unit": 1.0,
+      "up_axis": "Z",
+      "bounds_min": [
+        -0.07476737350225449,
+        -0.1961909532546997,
+        -0.2550290524959564
+      ],
+      "bounds_max": [
+        0.0923316702246666,
+        0.19618986546993256,
+        0.2551485002040863
+      ],
+      "size_m_authored": [
+        0.16709904372692108,
+        0.39238081872463226,
+        0.5101775527000427
+      ],
+      "types": {
+        "Xform": 2,
+        "Mesh": 1,
+        "GeomSubset": 5,
+        "Scope": 1,
+        "Material": 5,
+        "Shader": 7,
+        "DomeLight": 1
+      },
+      "meshes": [
+        "/root/_010/Meter01_025"
+      ],
+      "joint_count": 0,
+      "rigid_body_count": 0,
+      "collision_count": 0,
+      "shader_types": [
+        "UsdPreviewSurface",
+        "UsdPrimvarReader_float2",
+        "UsdUVTexture"
+      ],
+      "unresolved_dependencies": [],
+      "dependency_count": 2,
+      "status": "visual_only",
+      "semantic_name": null,
+      "normalized_file": "normalized/010.usda",
+      "gallery_prim": "/World/Asset010",
+      "gallery_translate": [
+        -0.008782148361206055,
+        1.0500005438923836,
+        0.2550290524959564
+      ]
+    },
+    {
+      "id": "011",
+      "file": "011.usdz",
+      "sha256": "35c5a953dd5fa0167d13895ba63dfa63e98db3437cf61877ef4892df6d5b52b7",
+      "bytes": 65389,
+      "crc_ok": true,
+      "package_members": [
+        "011.usdc",
+        "textures/color_0C0C0C.exr"
+      ],
+      "default_prim": "/root",
+      "meters_per_unit": 1.0,
+      "up_axis": "Z",
+      "bounds_min": [
+        -0.010582503862679005,
+        -0.07654936611652374,
+        -0.07233712077140808
+      ],
+      "bounds_max": [
+        0.018919778987765312,
+        0.07378385961055756,
+        0.07587136328220367
+      ],
+      "size_m_authored": [
+        0.029502282850444317,
+        0.1503332257270813,
+        0.14820848405361176
+      ],
+      "types": {
+        "Xform": 2,
+        "Mesh": 1,
+        "GeomSubset": 2,
+        "Scope": 1,
+        "Material": 2,
+        "Shader": 2,
+        "DomeLight": 1
+      },
+      "meshes": [
+        "/root/_011/Meter01_003"
+      ],
+      "joint_count": 0,
+      "rigid_body_count": 0,
+      "collision_count": 0,
+      "shader_types": [
+        "UsdPreviewSurface"
+      ],
+      "unresolved_dependencies": [],
+      "dependency_count": 1,
+      "status": "visual_only",
+      "semantic_name": null,
+      "normalized_file": "normalized/011.usda",
+      "gallery_prim": "/World/Asset011",
+      "gallery_translate": [
+        -0.004168637562543154,
+        2.101382753252983,
+        0.07233712077140808
+      ]
+    }
+  ],
+  "warning": "尺寸为资产 authoring 数据，不等同实物标定；未添加物理参数"
+}

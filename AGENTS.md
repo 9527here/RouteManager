@@ -14,7 +14,8 @@
 
 ## 这是什么
 
-基于 Isaac Sim 的人形机器人仿真服务器。外部只通过 HTTP 驱动：
+基于Isaac Sim 6.2的一站式工厂仿真配置、任务验证与数据采集平台，配合自研机器人、
+多方资源和Isaac Lab并行环境，服务Real→Sim→Real。HTTP执行器是交互运行核心：
 
 ```
 POST /execute  {"action": "<动作名>", "parameters": {...}}
@@ -62,20 +63,33 @@ Pico VR 遥操作。**设计目标：同一套控制代码在仿真与真机之�
 这些 action 执行完会等 stage 加载收敛（`_wait_stage_loading`）再返回，让前端拿到就能用。
 新增同类"加载型" action 记得加进去。
 
-### 4. 底盘轮子归 `set_base_velocity` 专管
+### 4. 底盘8个关节归 `set_base_velocity` 专管
 
-`_BASE_WHEEL_JOINTS`（四轮 skid-steer）只由速度控制驱动。**关节位置指令（ROS/HTTP）
-里的轮子分量会被忽略**，避免两路控制打架。超过 `base_teleop.timeout`（默认 0.5s）
+当前整机是四轮八驱：4个 `caster_*_joint` 用位置目标转向，4个 `*_wheel_joint` 用速度目标滚动，统一由 `set_base_velocity(vx, wz, vy=0)` 驱动。**整机位置指令（ROS/HTTP/UDP）
+里的这8个底盘分量会被忽略**，避免两路控制打架。超过 `base_teleop.timeout`（默认 0.5s）
 收不到速度指令自动刹停。
+用户于2026-11-02授权仿真参考舵角±90°，待实测；只做SessionLayer及runtime限位覆盖，不写回源URDF。原资产为±5°。几何/轴向从实际URDF读，不套旧skid-steer轮距。
 
-### 5. Python 版本是分裂的
+**纯侧移不得用转车身代替**（2026-11-02用户明确纠正）：先真实停轮、四轮对齐90°滚动平面、稳定后从0斜坡起步，全程wz=0、锁定起始车身朝向；不再用±55°临时yaw。走位前验证并收纳双臂，主柜壳须有环境碰撞/可视包络。忽略可见性不能漏掉隐藏Cube/Cylinder碰撞体，当前应覆盖96形状；运行时必须读实际手部位姿与环境净空，不只平移冻结初态。
 
-默认环境 isaacsim6.0（= Isaac Sim **6.2**）是 **python3.12**，ROS Humble 的 `rclpy` 是
-**python3.10**，两者不能互相 import。所以**仿真进程内跑不了 rclpy**，ROS2 一律走中继
-脚本（用系统 python3.10 跑）：**`scripts/ros2_sim_contract.py`** —— 现在发的是
-`/<robot>/sim/<instance>/...` 契约（见 `docs/ROS2接口_iasscsim_robot.md`）。
-旧的 `scripts/ros2_relay.py` 已废弃（`start_ros_relay.sh` 转发到新脚本）。`run.sh` 会 source ROS2 环境，
-但对仿真进程无实际作用，别被误导。
+**资产操作须正对操作面**（2026-11-02后续明确选择）：胸部正面垂直朝柜门／面板，不能把右臂横向站位偏置当成身体看向控件中心。资产请求先在安全点独立对正，之后才锁定新朝向沿X/Y平移；手动左右横移仍全程wz=0。到位必须同时检查目标面朝向、位置、停稳，不能仅比起始yaw。原地旋转的轮向准备和全身/手臂弧线扫掠必须验证，不能直接大角打舵或只查三个角度。
+
+**轮脚粗包络不能直接判碰**：轮胎圆柱的XY盒/整高扫掠圆会误挡3cm台脚。近障碍必须用当前全身真实3D形状窄相复核，转舵过程另作扫掠；当前姿态安全不等于能转到0。已验证可保当前轮向低速退出后再转舵，不得一律永久拒绝、忽略脚座或关闭保护。见memory/wheel-foot-envelope-recovery.md。
+
+**受阻默认自动回退**（用户明确要求）：已收臂走位中仅转舵/通道受阻可先停稳，再验证沿当前轮向退出，最多一次，资产待办保留至到位执行；手动横移退离后须报未完成。用户停止后不得自行恢复。真实净空不足、姿态/反馈异常不得归类成可恢复受阻；禁止宽泛catch RuntimeError后自动移动。
+
+**唤醒不能污染速度目标**：6.2高层`set_joint_velocities`同时写实际速度与驱动速度目标，不能把全身实测速度传进去当无副作用唤醒。底盘首动只用低层`set_dof_velocities`回写同一实际速度，目标须逐项保持。L3重置物理后恢复颈部参考阻尼；运行中补根PhysxArticulationAPI会使tensor后端失效，别用它临时试迭代。见memory/idle-jitter-swerve-20261102.md。
+
+### 5. ROS2：使用与Isaac匹配的Python绑定
+
+Isaac Sim 6.2是Python 3.12，系统ROS Humble的Python 3.10绑定不能直接混入。
+**6.2自带兼容的rclpy和消息包**：优先使用`setup_ros2_contract`及
+`ros2_bridge/contract_node.py`，回调由仿真主线程spin处理。
+`run.sh`会前置Isaac自带ROS2库；系统同名库排前面可能导致create_node时SIGABRT。
+详见[memory/ros2-inprocess-contract.md](memory/ros2-inprocess-contract.md)。
+
+`scripts/ros2_sim_contract.py`是Isaac内绑定不可用时的独立py3.10中继兜底，
+不能与进程内契约同时开。相机图像由Isaac内OmniGraph原生发布。
 
 ## 环境与命令
 
@@ -107,7 +121,7 @@ pkill -f "[r]outeManager.*main.py"  # 方括号防止 pkill 杀掉自己
 
 ## 改了代码怎么验（没有测试框架）
 
-项目**没有测试框架，没有 CI**。验证靠实际打接口，标准动作：
+项目有`tests/test_*.py`离线unittest回归，尚无CI。离线回归不代替Kit行为验收；现场验证的标准动作：
 
 ```bash
 curl http://127.0.0.1:18765/health                       # 1. 服务活着
@@ -129,10 +143,10 @@ curl -s -X POST http://127.0.0.1:18765/execute \
 ```
 main.py                 入口：cleanup_stale_server → SimEnv → RobotManager → IsaacTaskServer
 sim_env.py              SimulationApp 启动 + 插件（ros2.bridge / debug_draw / omnigraph）
-robot_manager.py        ★ 执行器：所有 action 的实现（14 万字节，最大的文件）
+robot_manager.py        ★ 执行器：所有 action 的实现
 standalone_server.py    HTTP 框架层（与 Isaac 无关，可整体拷到别的项目）
 isaac_teleop.py         Pico VR 遥操作（VRTeleopManager，由 RobotManager 持有）
-ros2_bridge/            ROS2 关节闭环节点（本项目环境不可用，见约束 5）
+ros2_bridge/            6.2进程内ROS2契约与相机图；外部中继作兜底
 urdf_tools/editor.py    纯 XML 改 URDF（不依赖 Isaac，导入前用）
 config.json             action 默认参数表 + 机器人预设库 + home_pose/teleop/base_teleop
 memory/                 项目记忆（见上）
@@ -258,6 +272,8 @@ POST /python  {"code": "import importlib, robot_manager; importlib.reload(robot_
 
 ## 工作约定
 
+- **插件面向用户的界面统一中文**：窗口名、按钮、状态反馈和使用说明均用中文；已有代码接口名保留兼容。
+
 - **不要猜规格/实测数据**。需要参数、标定值、真机规格时，列清单向用户要；
   万不得已用推定值必须显式标注。参见 `memory/ask-user-for-data-dont-guess.md`。
 - **改动前先确认改的是哪个臂/哪套 URDF**。项目里有 7 轴旧臂、官方 RM65 六轴重建版、
@@ -267,3 +283,11 @@ POST /python  {"code": "import importlib, robot_manager; importlib.reload(robot_
   大量注释记录的是实测数据与被否决的方案，别当成冗余删掉）。
 - 改动物理/驱动参数（刚度、阻尼、摩擦）前，先读 memory 里对应那篇——好几个值
   是反复试错才定下来的，随手改回去会重现"推不动 / 抓不住 / 静止抖动"。
+
+## 源码与本机产物（2026-11-03整理）
+
+- 目录与资产管理见`docs/项目目录与文件管理.md`、`assets/README.md`。
+- `outputs/`保持本机原位且不上传；不要清理活动USD引用和失败证据。
+- 旧`humanoid_upper_body_v3`完整包外置，原路径为本机软链接；不要把目标目录重新加进Git。
+- 17个离线回归模块集中到`tests/`；`scripts/validate_*.py`仍可能是原生验收/数据入口，先读源码再运行。
+- 代码、参数/来源清单与文档可提交；原CAD、GLB、转换缓存、纹理、录像与数据集按各自来源留在外部。

@@ -1,0 +1,111 @@
+[
+  {
+    "id": "e_stop_button",
+    "usd": "usd/e_stop_button/e_stop_button/e_stop_button.usda",
+    "root_prim": "/e_stop_button",
+    "joints": [
+      {
+        "name": "button_twist_joint",
+        "path": "/e_stop_button/Physics/button_twist_joint",
+        "type": "revolute",
+        "drive_p": 0.05,
+        "drive_d": 0.01
+      },
+      {
+        "name": "button_joint",
+        "path": "/e_stop_button/Physics/button_joint",
+        "type": "prismatic",
+        "drive_p": 1.0,
+        "drive_d": 1.0
+      }
+    ],
+    "source_dimensions_verified": false,
+    "force_calibrated": false,
+    "human_contact_verified": false,
+    "gallery_prim": "/World/Devices/e_stop_button",
+    "gallery_translate": [
+      -0.2,
+      0,
+      0.9
+    ],
+    "gallery_rotation": [
+      90,
+      0,
+      0
+    ],
+    "validation": {
+      "joint_drive_cycles": 3,
+      "state_logic_verified": true,
+      "human_contact_verified": false,
+      "direct_effort_load_verified": false
+    }
+  },
+  {
+    "id": "isolator_switch",
+    "usd": "usd/isolator_switch/isolator_switch/isolator_switch.usda",
+    "root_prim": "/isolator_switch",
+    "joints": [
+      {
+        "name": "switch_joint",
+        "path": "/isolator_switch/Physics/switch_joint",
+        "type": "revolute",
+        "drive_p": 0.2,
+        "drive_d": 0.01
+      }
+    ],
+    "source_dimensions_verified": false,
+    "force_calibrated": false,
+    "human_contact_verified": false,
+    "gallery_prim": "/World/Devices/isolator_switch",
+    "gallery_translate": [
+      0,
+      0,
+      0.9
+    ],
+    "gallery_rotation": [
+      90,
+      0,
+      0
+    ],
+    "validation": {
+      "joint_drive_cycles": 3,
+      "state_logic_verified": true,
+      "human_contact_verified": false,
+      "direct_effort_load_verified": false
+    }
+  },
+  {
+    "id": "safety_switch",
+    "usd": "usd/safety_switch/safety_switch/safety_switch.usda",
+    "root_prim": "/safety_switch",
+    "joints": [
+      {
+        "name": "switch_joint",
+        "path": "/safety_switch/Physics/switch_joint",
+        "type": "revolute",
+        "drive_p": 0.6,
+        "drive_d": 0.01
+      }
+    ],
+    "source_dimensions_verified": false,
+    "force_calibrated": false,
+    "human_contact_verified": false,
+    "gallery_prim": "/World/Devices/safety_switch",
+    "gallery_translate": [
+      0.33,
+      0,
+      0.8
+    ],
+    "gallery_rotation": [
+      0,
+      0,
+      0
+    ],
+    "validation": {
+      "joint_drive_cycles": 3,
+      "state_logic_verified": true,
+      "human_contact_verified": false,
+      "direct_effort_load_verified": false
+    }
+  }
+]

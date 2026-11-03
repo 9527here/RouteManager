@@ -1,0 +1,134 @@
+[
+  {
+    "id": "e_stop_button",
+    "urdf": "urdf/e_stop_button.urdf",
+    "removed": [
+      "gazebo:",
+      "gazebo:",
+      "gazebo:",
+      "gazebo:",
+      "link:world",
+      "joint:button_base_to_world",
+      "transmission:button_twist_trans",
+      "transmission:button_trans"
+    ],
+    "fixes": [],
+    "joints": [
+      {
+        "name": "button_twist_joint",
+        "type": "revolute",
+        "axis": {
+          "xyz": "0 0 1"
+        },
+        "limit": {
+          "effort": "100",
+          "lower": "-1.5707",
+          "upper": "0",
+          "velocity": "0.5"
+        }
+      },
+      {
+        "name": "button_handle_to_shaft",
+        "type": "fixed",
+        "axis": null,
+        "limit": null
+      },
+      {
+        "name": "button_joint",
+        "type": "prismatic",
+        "axis": {
+          "xyz": "0 0 1"
+        },
+        "limit": {
+          "effort": "100",
+          "lower": "-0.005",
+          "upper": "0",
+          "velocity": "0.5"
+        }
+      }
+    ],
+    "collision_count": 3,
+    "parameters_calibrated": false
+  },
+  {
+    "id": "isolator_switch",
+    "urdf": "urdf/isolator_switch.urdf",
+    "removed": [
+      "gazebo:",
+      "gazebo:",
+      "gazebo:",
+      "gazebo:",
+      "link:world",
+      "joint:switch_base_to_world",
+      "transmission:switch_trans"
+    ],
+    "fixes": [
+      "grip visual origin aligned to collision: z 0.009 -> 0.015 m"
+    ],
+    "joints": [
+      {
+        "name": "switch_handle_to_base",
+        "type": "fixed",
+        "axis": null,
+        "limit": null
+      },
+      {
+        "name": "switch_joint",
+        "type": "revolute",
+        "axis": {
+          "xyz": "0 0 1"
+        },
+        "limit": {
+          "effort": "100",
+          "lower": "0.0",
+          "upper": "1.5707",
+          "velocity": "0.5"
+        }
+      },
+      {
+        "name": "switch_head_to_grip",
+        "type": "fixed",
+        "axis": null,
+        "limit": null
+      }
+    ],
+    "collision_count": 3,
+    "parameters_calibrated": false
+  },
+  {
+    "id": "safety_switch",
+    "urdf": "urdf/safety_switch.urdf",
+    "removed": [
+      "gazebo:",
+      "gazebo:",
+      "gazebo:",
+      "link:world",
+      "joint:switch_base_to_world",
+      "transmission:switch_trans"
+    ],
+    "fixes": [],
+    "joints": [
+      {
+        "name": "switch_handle_to_base",
+        "type": "fixed",
+        "axis": null,
+        "limit": null
+      },
+      {
+        "name": "switch_joint",
+        "type": "revolute",
+        "axis": {
+          "xyz": "1 0 0"
+        },
+        "limit": {
+          "effort": "100",
+          "lower": "-1.5707",
+          "upper": "0",
+          "velocity": "0.5"
+        }
+      }
+    ],
+    "collision_count": 2,
+    "parameters_calibrated": false
+  }
+]

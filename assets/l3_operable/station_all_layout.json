@@ -1,0 +1,98 @@
+{
+  "object_0": {
+    "kind": "button",
+    "position": [
+      0.78,
+      -0.9,
+      1.26
+    ]
+  },
+  "object_1": {
+    "kind": "button",
+    "position": [
+      0.78,
+      -1.16,
+      1.26
+    ]
+  },
+  "object_2": {
+    "kind": "button",
+    "position": [
+      0.78,
+      -1.42,
+      1.26
+    ]
+  },
+  "object_4": {
+    "kind": "selector",
+    "position": [
+      0.78,
+      -0.88,
+      1.08
+    ]
+  },
+  "object_5": {
+    "kind": "selector",
+    "position": [
+      0.78,
+      -1.04,
+      1.08
+    ]
+  },
+  "object_6": {
+    "kind": "selector",
+    "position": [
+      0.78,
+      -1.2,
+      1.08
+    ]
+  },
+  "object_6_variant": {
+    "kind": "selector",
+    "position": [
+      0.78,
+      -1.36,
+      1.08
+    ]
+  },
+  "object_19": {
+    "kind": "selector",
+    "position": [
+      0.78,
+      -1.52,
+      1.08
+    ]
+  },
+  "object_13": {
+    "kind": "plate",
+    "position": [
+      0.78,
+      -0.9,
+      0.87
+    ]
+  },
+  "object_15": {
+    "kind": "plate",
+    "position": [
+      0.78,
+      -1.1,
+      0.87
+    ]
+  },
+  "object_16": {
+    "kind": "plate",
+    "position": [
+      0.78,
+      -1.3,
+      0.87
+    ]
+  },
+  "object_111": {
+    "kind": "plate",
+    "position": [
+      0.78,
+      -1.5,
+      0.87
+    ]
+  }
+}

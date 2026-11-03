@@ -5,8 +5,8 @@
 
 ## 开工前请按顺序读
 
-1. [AGENTS.md](../AGENTS.md) —— 硬性约束、踩坑清单、改了怎么验、代码地图
-2. [README.md](../README.md) —— 人类上手流程（安装 / 启动 / action 一览）
+1. [README.md](../README.md) —— 项目定位与人类上手流程
+2. [AGENTS.md](../AGENTS.md) —— 硬性约束、踩坑清单、改了怎么验、代码地图
 3. [memory/MEMORY.md](../memory/MEMORY.md) —— 项目自带记忆索引，实测结论都在这
 
 ## Claude Code 相关

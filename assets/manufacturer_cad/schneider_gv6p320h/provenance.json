@@ -1,0 +1,13 @@
+{
+  "manufacturer": "Schneider Electric",
+  "product": "GV6P320H",
+  "document": "MCADPD0004073_3D-CAD",
+  "page": "https://www.se.com/id/id/download/document/MCADPD0004073_3D-CAD/",
+  "download": "https://download.se.com/files?p_File_Name=MCADPD0004073_3D-simplified.stp&p_Doc_Ref=MCADPD0004073_3D-CAD&p_enDocType=CAD",
+  "file": "MCADPD0004073_3D-simplified.stp",
+  "bytes": 1329459,
+  "sha256": "a104113d5e19d8d0d1b3e7aff90c990d2f14bf99a8c632737c5584e105cf5166",
+  "license": "manufacturer CAD terms; not established as open source",
+  "redistribution_cleared": false,
+  "physics_ready": false
+}

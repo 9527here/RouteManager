@@ -1,0 +1,80 @@
+{
+  "physx_solver": "TGS",
+  "calibrated_to_user_hardware": false,
+  "authorization": "用户授权先按参考规格做可操作版，参数注明待实测",
+  "button": {
+    "mount_diameter_m": 0.022,
+    "bezel_diameter_m": 0.03,
+    "stroke_m": 0.0043,
+    "switch_travel_m": 0.0026,
+    "switch_force_N": 3.8,
+    "preload_N": 1.0,
+    "damping_Ns_m": 3.0,
+    "mass_kg": 0.08,
+    "cap_mass_kg": 0.015,
+    "cap_diameter_m": 0.022,
+    "data_sheet_fields": [
+      "mount_diameter_m",
+      "bezel_diameter_m",
+      "stroke_m",
+      "switch_travel_m",
+      "switch_force_N",
+      "mass_kg"
+    ],
+    "engineering_assumptions": [
+      "cap_diameter_m",
+      "cap_mass_kg",
+      "preload_N",
+      "damping_Ns_m"
+    ],
+    "reference": "Schneider XB4BA31 数据表；作为参考而非 L3 型号认定",
+    "source": "https://www.coelpuebla.com.mx/files/producto/f_109_descargas_9h0n2ctyc_734.pdf"
+  },
+  "selector": {
+    "panel_width_m": 0.048,
+    "bare_handle_height_m": 0.032,
+    "base_mass_kg": 0.065,
+    "handle_mass_kg": 0.018,
+    "two_positions_deg": [
+      0.0,
+      90.0
+    ],
+    "three_positions_deg": [
+      -45.0,
+      0.0,
+      45.0
+    ],
+    "detent_stiffness_Nm_rad": 0.08,
+    "damping_Nms_rad": 0.0015,
+    "max_resisting_torque_Nm": 0.08,
+    "reference": "90°/±45°保持形式参考 Harmony；尺寸/阻力为待实测工程参考值",
+    "source": "https://www.se.com/ca/en/product/XB4BK123M5/"
+  },
+  "plate": {
+    "height_m": 0.08,
+    "screw_pitch_m": 0.001,
+    "screw_diameter_m": 0.006,
+    "base_mass_kg": 0.065,
+    "carrier_mass_kg": 0.004,
+    "nut_mass_kg": 0.012,
+    "bridge_mass_kg": 0.015,
+    "release_turns": 2.0,
+    "max_turns": 2.5,
+    "swing_deg": 90.0,
+    "axial_stiffness_N_m": 20000.0,
+    "axial_damping_Ns_m": 5.0,
+    "screw_damping_Nms_rad": 0.001,
+    "swing_damping_Nms_rad": 0.001,
+    "reference": "M6x1等效螺旋副+80mm外形为工程参考值，非已确认厂家型号",
+    "thread_model": "等效角度-轴移耦合；没有真实螺纹牙接触仿真"
+  },
+  "contact": {
+    "static_friction": 0.6,
+    "dynamic_friction": 0.5,
+    "restitution": 0.0,
+    "contact_offset_m": 0.0003,
+    "rest_offset_m": 0.0,
+    "reference": "干燥塑料/手指垫的工程参考值，非实测"
+  },
+  "force_calibration_status": "参考弹簧参数；TGS力-行程存在数值偏差，不能当作真实按压力标定"
+}

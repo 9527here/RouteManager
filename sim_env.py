@@ -37,6 +37,24 @@ class SimEnv:
 
         ext_manager = omni.kit.app.get_app().get_extension_manager()
 
+        # 人物运行时须在World第一次Play前预载，热加载到暂停现场会漏掉动画启动事件。
+        # 显式开关保持普通仿真启动开销不变；场景与人物仍由attach入口附着。
+        people_root = os.environ.get("ROUTE_MANAGER_SIMPEOPLE_ROOT")
+        if people_root:
+            from pathlib import Path
+            extensions = Path(people_root).expanduser().resolve() / "extensions"
+            if not (extensions / "rosclaw.simpeople/config/extension.toml").is_file():
+                raise RuntimeError(f"SimPeople扩展目录不存在: {extensions}")
+            ext_manager.add_path(str(extensions))
+            for extension in ("omni.anim.behavior.core", "omni.anim.navigation.core",
+                              "omni.anim.graph.core", "omni.anim.skelJoint"):
+                if not ext_manager.set_extension_enabled_immediate(extension, True):
+                    raise RuntimeError(f"人物原生运行时预载失败: {extension}")
+            import omni.usd
+            self._people_stage_subscription = omni.usd.get_context().get_stage_event_stream().create_subscription_to_pop(
+                self._prepare_people_timeline, name="人物动画场景时间范围")
+            logger.info("已预载SimPeople原生运行时，等待附着现有场景")
+
         # ROS2 Bridge：关节指令/状态话题的收发都靠它。
         # headless / 无 ROS 环境下插件可能加载失败 —— 降级运行（ROS2 相关
         # action 会报"未初始化"），不让整个服务起不来
@@ -70,6 +88,19 @@ class SimEnv:
                 logger.debug(f"Omnigraph 插件已加载: {ext}")
             except Exception:
                 logger.debug(f"Omnigraph 插件加载跳过: {ext}")
+
+    def _prepare_people_timeline(self, event):
+        """在新场景建物理之前处理零长度台架时间范围，避免运行中改帧率/重建后端。"""
+        import omni.usd
+        import omni.timeline
+        from pxr import Usd
+        if event.type != int(omni.usd.StageEventType.OPENED):
+            return
+        stage = omni.usd.get_context().get_stage()
+        if stage is not None and stage.GetEndTimeCode() <= 0:
+            with Usd.EditContext(stage, stage.GetSessionLayer()):
+                omni.timeline.get_timeline_interface().set_end_time(100000.)
+            logger.info("已扩展本会话台架时间范围，源USD未写回")
 
     def get_app(self):
         return self.simulation_app

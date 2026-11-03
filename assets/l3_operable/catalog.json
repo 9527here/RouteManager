@@ -1,0 +1,889 @@
+[
+  {
+    "kind": "button",
+    "indicator_shader": "/Asset/Looks/MovingTexture/Surface",
+    "indicator_light": "/Asset/Cap/FeedbackLight",
+    "surface_local": [
+      0.016,
+      0,
+      0
+    ],
+    "reference_dimensions": [
+      0.03,
+      0.03,
+      0.04
+    ],
+    "id": "object_0",
+    "usd": "object_0.usda",
+    "root_prim": "/Asset",
+    "joints": [
+      {
+        "name": "button_slide",
+        "type": "prismatic",
+        "limits": [
+          -0.0043,
+          0.0
+        ],
+        "stiffness": 1076.923076923077,
+        "damping": 3.0
+      }
+    ],
+    "source_file": "object_0.glb",
+    "source_sha256": "1596702f0a577de2b845436883a24121949d8794deeb16868d685fc5ab84c157",
+    "calibrated_to_user_hardware": false,
+    "robot_contact_verified": false,
+    "gallery_prim": "/World/Controls/object_0",
+    "gallery_position": [
+      0.0,
+      -0.36,
+      1.25
+    ],
+    "fixture_validation": {
+      "cycles": 5,
+      "passed": true,
+      "solver": "TGS",
+      "physics_Hz": 240
+    }
+  },
+  {
+    "kind": "button",
+    "indicator_shader": "/Asset/Looks/MovingTexture/Surface",
+    "indicator_light": "/Asset/Cap/FeedbackLight",
+    "surface_local": [
+      0.016,
+      0,
+      0
+    ],
+    "reference_dimensions": [
+      0.03,
+      0.03,
+      0.04
+    ],
+    "id": "object_0_variant",
+    "usd": "object_0_variant.usda",
+    "root_prim": "/Asset",
+    "joints": [
+      {
+        "name": "button_slide",
+        "type": "prismatic",
+        "limits": [
+          -0.0043,
+          0.0
+        ],
+        "stiffness": 1076.923076923077,
+        "damping": 3.0
+      }
+    ],
+    "source_file": "object_0 (1).glb",
+    "source_sha256": "fd1111bcd5e968910fedcb9f6b44811f1e78d89f1ad9512e805bd0b28d755b8d",
+    "calibrated_to_user_hardware": false,
+    "robot_contact_verified": true,
+    "gallery_prim": "/World/Controls/object_0_variant",
+    "gallery_position": [
+      0.0,
+      -0.18,
+      1.25
+    ],
+    "fixture_validation": {
+      "cycles": 5,
+      "passed": true,
+      "solver": "TGS",
+      "physics_Hz": 240
+    },
+    "robot_contact_evidence": "outputs/l3_operable/live/robot_button_contact.json"
+  },
+  {
+    "kind": "button",
+    "indicator_shader": "/Asset/Looks/MovingTexture/Surface",
+    "indicator_light": "/Asset/Cap/FeedbackLight",
+    "surface_local": [
+      0.016,
+      0,
+      0
+    ],
+    "reference_dimensions": [
+      0.03,
+      0.03,
+      0.04
+    ],
+    "id": "object_1",
+    "usd": "object_1.usda",
+    "root_prim": "/Asset",
+    "joints": [
+      {
+        "name": "button_slide",
+        "type": "prismatic",
+        "limits": [
+          -0.0043,
+          0.0
+        ],
+        "stiffness": 1076.923076923077,
+        "damping": 3.0
+      }
+    ],
+    "source_file": "object_1.glb",
+    "source_sha256": "92b4f74da8038ba28f9ba507e63665cb49be941f2967788cd39e9d1885580c00",
+    "calibrated_to_user_hardware": false,
+    "robot_contact_verified": false,
+    "gallery_prim": "/World/Controls/object_1",
+    "gallery_position": [
+      0.0,
+      0.0,
+      1.25
+    ],
+    "fixture_validation": {
+      "cycles": 5,
+      "passed": true,
+      "solver": "TGS",
+      "physics_Hz": 240
+    }
+  },
+  {
+    "kind": "button",
+    "indicator_shader": "/Asset/Looks/MovingTexture/Surface",
+    "indicator_light": "/Asset/Cap/FeedbackLight",
+    "surface_local": [
+      0.016,
+      0,
+      0
+    ],
+    "reference_dimensions": [
+      0.03,
+      0.03,
+      0.04
+    ],
+    "id": "object_2",
+    "usd": "object_2.usda",
+    "root_prim": "/Asset",
+    "joints": [
+      {
+        "name": "button_slide",
+        "type": "prismatic",
+        "limits": [
+          -0.0043,
+          0.0
+        ],
+        "stiffness": 1076.923076923077,
+        "damping": 3.0
+      }
+    ],
+    "source_file": "object_2.glb",
+    "source_sha256": "cfd6aa9cf5c247d02dd119db5ce1ed7c6468e78b3c7b5e210895b790b5276c79",
+    "calibrated_to_user_hardware": false,
+    "robot_contact_verified": false,
+    "gallery_prim": "/World/Controls/object_2",
+    "gallery_position": [
+      0.0,
+      0.18,
+      1.25
+    ],
+    "fixture_validation": {
+      "cycles": 5,
+      "passed": true,
+      "solver": "TGS",
+      "physics_Hz": 240
+    }
+  },
+  {
+    "kind": "selector",
+    "detents_deg": [
+      0.0,
+      90.0
+    ],
+    "segmentation": "whole independent handle",
+    "reference_dimensions": [
+      0.01162468960167704,
+      0.022004553501979614,
+      0.032
+    ],
+    "id": "object_3",
+    "usd": "object_3.usda",
+    "root_prim": "/Asset",
+    "joints": [
+      {
+        "name": "selector_turn",
+        "type": "revolute",
+        "limits": [
+          0.0,
+          1.5707963267948966
+        ],
+        "stiffness": 0.08,
+        "damping": 0.0015
+      }
+    ],
+    "source_file": "object_3.glb",
+    "source_sha256": "5918ab213b583c4894d8f3efbdd2477aba576fa2f50edef25226ddb0a2f4e50d",
+    "calibrated_to_user_hardware": false,
+    "robot_contact_verified": false,
+    "gallery_prim": "/World/Controls/object_3",
+    "gallery_position": [
+      0.0,
+      0.36,
+      1.25
+    ],
+    "fixture_validation": {
+      "cycles": 5,
+      "passed": true,
+      "solver": "TGS",
+      "physics_Hz": 240
+    }
+  },
+  {
+    "kind": "selector",
+    "detents_deg": [
+      -45.0,
+      0.0,
+      45.0
+    ],
+    "segmentation": "whole independent handle",
+    "reference_dimensions": [
+      0.010587150436830842,
+      0.02346912276569297,
+      0.032
+    ],
+    "id": "object_4",
+    "usd": "object_4.usda",
+    "root_prim": "/Asset",
+    "joints": [
+      {
+        "name": "selector_turn",
+        "type": "revolute",
+        "limits": [
+          -0.7853981633974483,
+          0.7853981633974483
+        ],
+        "stiffness": 0.08,
+        "damping": 0.0015
+      }
+    ],
+    "source_file": "object_4.glb",
+    "source_sha256": "fa116ceb972681c32f827ee9ed6be8e3ebef92611ce6aa8eeaa73aad5802f0d2",
+    "calibrated_to_user_hardware": false,
+    "robot_contact_verified": false,
+    "gallery_prim": "/World/Controls/object_4",
+    "gallery_position": [
+      0.0,
+      -0.36,
+      1.01
+    ],
+    "fixture_validation": {
+      "cycles": 5,
+      "passed": true,
+      "solver": "TGS",
+      "physics_Hz": 240
+    }
+  },
+  {
+    "kind": "selector",
+    "detents_deg": [
+      -45.0,
+      0.0,
+      45.0
+    ],
+    "segmentation": "whole independent handle",
+    "reference_dimensions": [
+      0.009660445108622129,
+      0.025145390896980323,
+      0.03200000000000001
+    ],
+    "id": "object_5",
+    "usd": "object_5.usda",
+    "root_prim": "/Asset",
+    "joints": [
+      {
+        "name": "selector_turn",
+        "type": "revolute",
+        "limits": [
+          -0.7853981633974483,
+          0.7853981633974483
+        ],
+        "stiffness": 0.08,
+        "damping": 0.0015
+      }
+    ],
+    "source_file": "object_5.glb",
+    "source_sha256": "0f682773b0602e78223ef9b00b313c41df06611b1652350400bfcce3e16fa459",
+    "calibrated_to_user_hardware": false,
+    "robot_contact_verified": false,
+    "gallery_prim": "/World/Controls/object_5",
+    "gallery_position": [
+      0.0,
+      -0.18,
+      1.01
+    ],
+    "fixture_validation": {
+      "cycles": 5,
+      "passed": true,
+      "solver": "TGS",
+      "physics_Hz": 240
+    }
+  },
+  {
+    "kind": "selector",
+    "detents_deg": [
+      0.0,
+      90.0
+    ],
+    "segmentation": "texture-guided front plane",
+    "reference_dimensions": [
+      0.02961371490158293,
+      0.048,
+      0.045976432924469235
+    ],
+    "id": "object_6",
+    "usd": "object_6.usda",
+    "root_prim": "/Asset",
+    "joints": [
+      {
+        "name": "selector_turn",
+        "type": "revolute",
+        "limits": [
+          0.0,
+          1.5707963267948966
+        ],
+        "stiffness": 0.08,
+        "damping": 0.0015
+      }
+    ],
+    "source_file": "object_6.glb",
+    "source_sha256": "eb29316054f23b0e708c6d5c84c3c1007b0f2ecd126b1cc9b1e2c1226cbc7b41",
+    "calibrated_to_user_hardware": false,
+    "robot_contact_verified": false,
+    "gallery_prim": "/World/Controls/object_6",
+    "gallery_position": [
+      0.0,
+      0.0,
+      1.01
+    ],
+    "fixture_validation": {
+      "cycles": 5,
+      "passed": true,
+      "solver": "TGS",
+      "physics_Hz": 240
+    }
+  },
+  {
+    "kind": "selector",
+    "detents_deg": [
+      0.0,
+      90.0
+    ],
+    "segmentation": "texture-guided front plane",
+    "reference_dimensions": [
+      0.029613287935504398,
+      0.048,
+      0.045973950671603564
+    ],
+    "id": "object_6_variant",
+    "usd": "object_6_variant.usda",
+    "root_prim": "/Asset",
+    "joints": [
+      {
+        "name": "selector_turn",
+        "type": "revolute",
+        "limits": [
+          0.0,
+          1.5707963267948966
+        ],
+        "stiffness": 0.08,
+        "damping": 0.0015
+      }
+    ],
+    "source_file": "object_6 (1).glb",
+    "source_sha256": "e79d2748d369a4bef9faa7ebb0b79858c50e0c13f7bf20245e40c603c941d94e",
+    "calibrated_to_user_hardware": false,
+    "robot_contact_verified": false,
+    "gallery_prim": "/World/Controls/object_6_variant",
+    "gallery_position": [
+      0.0,
+      0.18,
+      1.01
+    ],
+    "fixture_validation": {
+      "cycles": 5,
+      "passed": true,
+      "solver": "TGS",
+      "physics_Hz": 240
+    }
+  },
+  {
+    "kind": "selector",
+    "detents_deg": [
+      -45.0,
+      0.0,
+      45.0
+    ],
+    "segmentation": "texture-guided front plane",
+    "reference_dimensions": [
+      0.029725181502919057,
+      0.048,
+      0.04797455226909353
+    ],
+    "id": "object_19",
+    "usd": "object_19.usda",
+    "root_prim": "/Asset",
+    "joints": [
+      {
+        "name": "selector_turn",
+        "type": "revolute",
+        "limits": [
+          -0.7853981633974483,
+          0.7853981633974483
+        ],
+        "stiffness": 0.08,
+        "damping": 0.0015
+      }
+    ],
+    "source_file": "object_19.glb",
+    "source_sha256": "27f8163b5a90daa3e38aaaae2f478fbb19e446c458a5a61a8b4ba7834a682799",
+    "calibrated_to_user_hardware": false,
+    "robot_contact_verified": false,
+    "gallery_prim": "/World/Controls/object_19",
+    "gallery_position": [
+      0.0,
+      0.36,
+      1.01
+    ],
+    "fixture_validation": {
+      "cycles": 5,
+      "passed": true,
+      "solver": "TGS",
+      "physics_Hz": 240
+    }
+  },
+  {
+    "kind": "plate",
+    "segmentation": "geometry transfer from object_14; approximate reconstructed parts",
+    "conductor": "rebuilt reference bridge; source central red part retained as insulated grip",
+    "pivot": [
+      0.0,
+      -3.412589478894463e-05,
+      -0.02725556719722741
+    ],
+    "stud_pitch_m": 0.05498952473112324,
+    "reference_dimensions": [
+      0.04631807929843676,
+      0.023622115127585615,
+      0.08
+    ],
+    "id": "object_13",
+    "usd": "object_13.usda",
+    "root_prim": "/Asset",
+    "joints": [
+      {
+        "name": "upper_slide",
+        "type": "prismatic",
+        "limits": [
+          0.0,
+          0.0025
+        ],
+        "stiffness": 20000.0,
+        "damping": 5.0
+      },
+      {
+        "name": "upper_turn",
+        "type": "revolute",
+        "limits": [
+          0.0,
+          15.707963267948966
+        ],
+        "stiffness": 0.0,
+        "damping": 0.001
+      },
+      {
+        "name": "lower_slide",
+        "type": "prismatic",
+        "limits": [
+          0.0,
+          0.0025
+        ],
+        "stiffness": 20000.0,
+        "damping": 5.0
+      },
+      {
+        "name": "lower_turn",
+        "type": "revolute",
+        "limits": [
+          0.0,
+          15.707963267948966
+        ],
+        "stiffness": 0.0,
+        "damping": 0.001
+      },
+      {
+        "name": "bridge_swing",
+        "type": "revolute",
+        "limits": [
+          0.0,
+          1.5707963267948966
+        ],
+        "stiffness": 0.0,
+        "damping": 0.001
+      }
+    ],
+    "source_file": "object_13.glb",
+    "source_sha256": "fc3fec0a78ec6d3d0bf0aeda1e0b2f080a60c90e221d32c82db880b38f9ae29c",
+    "calibrated_to_user_hardware": false,
+    "robot_contact_verified": false,
+    "gallery_prim": "/World/Controls/object_13",
+    "gallery_position": [
+      0.0,
+      -0.36,
+      0.77
+    ],
+    "fixture_validation": {
+      "cycles": 5,
+      "passed": true,
+      "solver": "TGS",
+      "physics_Hz": 240
+    }
+  },
+  {
+    "kind": "plate",
+    "segmentation": "4 position-connected components; UV preserved",
+    "conductor": "rebuilt reference bridge; source central red part retained as insulated grip",
+    "pivot": [
+      0.0,
+      7.360765636762415e-05,
+      -0.029590994156190313
+    ],
+    "stud_pitch_m": 0.060013950185610836,
+    "reference_dimensions": [
+      0.04633756634091582,
+      0.023935242987899542,
+      0.08000000000000002
+    ],
+    "id": "object_14",
+    "usd": "object_14.usda",
+    "root_prim": "/Asset",
+    "joints": [
+      {
+        "name": "upper_slide",
+        "type": "prismatic",
+        "limits": [
+          0.0,
+          0.0025
+        ],
+        "stiffness": 20000.0,
+        "damping": 5.0
+      },
+      {
+        "name": "upper_turn",
+        "type": "revolute",
+        "limits": [
+          0.0,
+          15.707963267948966
+        ],
+        "stiffness": 0.0,
+        "damping": 0.001
+      },
+      {
+        "name": "lower_slide",
+        "type": "prismatic",
+        "limits": [
+          0.0,
+          0.0025
+        ],
+        "stiffness": 20000.0,
+        "damping": 5.0
+      },
+      {
+        "name": "lower_turn",
+        "type": "revolute",
+        "limits": [
+          0.0,
+          15.707963267948966
+        ],
+        "stiffness": 0.0,
+        "damping": 0.001
+      },
+      {
+        "name": "bridge_swing",
+        "type": "revolute",
+        "limits": [
+          0.0,
+          1.5707963267948966
+        ],
+        "stiffness": 0.0,
+        "damping": 0.001
+      }
+    ],
+    "source_file": "object_14.glb",
+    "source_sha256": "28dd939ae03e79ef4cc578501159954e2c8a578cf13fbb3e935ecbe663defb8a",
+    "calibrated_to_user_hardware": false,
+    "robot_contact_verified": false,
+    "gallery_prim": "/World/Controls/object_14",
+    "gallery_position": [
+      0.0,
+      -0.18,
+      0.77
+    ],
+    "fixture_validation": {
+      "cycles": 5,
+      "passed": true,
+      "solver": "TGS",
+      "physics_Hz": 240
+    }
+  },
+  {
+    "kind": "plate",
+    "segmentation": "geometry transfer from object_14; approximate reconstructed parts",
+    "conductor": "rebuilt reference bridge; source central red part retained as insulated grip",
+    "pivot": [
+      0.0,
+      0.00013199357031476715,
+      -0.02887942916473972
+    ],
+    "stud_pitch_m": 0.05815765087617951,
+    "reference_dimensions": [
+      0.03302975556919051,
+      0.020755450328312705,
+      0.08
+    ],
+    "id": "object_15",
+    "usd": "object_15.usda",
+    "root_prim": "/Asset",
+    "joints": [
+      {
+        "name": "upper_slide",
+        "type": "prismatic",
+        "limits": [
+          0.0,
+          0.0025
+        ],
+        "stiffness": 20000.0,
+        "damping": 5.0
+      },
+      {
+        "name": "upper_turn",
+        "type": "revolute",
+        "limits": [
+          0.0,
+          15.707963267948966
+        ],
+        "stiffness": 0.0,
+        "damping": 0.001
+      },
+      {
+        "name": "lower_slide",
+        "type": "prismatic",
+        "limits": [
+          0.0,
+          0.0025
+        ],
+        "stiffness": 20000.0,
+        "damping": 5.0
+      },
+      {
+        "name": "lower_turn",
+        "type": "revolute",
+        "limits": [
+          0.0,
+          15.707963267948966
+        ],
+        "stiffness": 0.0,
+        "damping": 0.001
+      },
+      {
+        "name": "bridge_swing",
+        "type": "revolute",
+        "limits": [
+          0.0,
+          1.5707963267948966
+        ],
+        "stiffness": 0.0,
+        "damping": 0.001
+      }
+    ],
+    "source_file": "object_15.glb",
+    "source_sha256": "9e9e3c4a0201deaa0e4c973ff4cf460b4b1901b0730251b57ef64e021836794c",
+    "calibrated_to_user_hardware": false,
+    "robot_contact_verified": false,
+    "gallery_prim": "/World/Controls/object_15",
+    "gallery_position": [
+      0.0,
+      0.0,
+      0.77
+    ],
+    "fixture_validation": {
+      "cycles": 5,
+      "passed": true,
+      "solver": "TGS",
+      "physics_Hz": 240
+    }
+  },
+  {
+    "kind": "plate",
+    "segmentation": "geometry transfer from object_14; approximate reconstructed parts",
+    "conductor": "rebuilt reference bridge; source central red part retained as insulated grip",
+    "pivot": [
+      0.0,
+      1.5248914598210359e-05,
+      -0.023787235617725888
+    ],
+    "stud_pitch_m": 0.05338554992776705,
+    "reference_dimensions": [
+      0.03147332816889756,
+      0.02166592275901994,
+      0.08
+    ],
+    "id": "object_16",
+    "usd": "object_16.usda",
+    "root_prim": "/Asset",
+    "joints": [
+      {
+        "name": "upper_slide",
+        "type": "prismatic",
+        "limits": [
+          0.0,
+          0.0025
+        ],
+        "stiffness": 20000.0,
+        "damping": 5.0
+      },
+      {
+        "name": "upper_turn",
+        "type": "revolute",
+        "limits": [
+          0.0,
+          15.707963267948966
+        ],
+        "stiffness": 0.0,
+        "damping": 0.001
+      },
+      {
+        "name": "lower_slide",
+        "type": "prismatic",
+        "limits": [
+          0.0,
+          0.0025
+        ],
+        "stiffness": 20000.0,
+        "damping": 5.0
+      },
+      {
+        "name": "lower_turn",
+        "type": "revolute",
+        "limits": [
+          0.0,
+          15.707963267948966
+        ],
+        "stiffness": 0.0,
+        "damping": 0.001
+      },
+      {
+        "name": "bridge_swing",
+        "type": "revolute",
+        "limits": [
+          0.0,
+          1.5707963267948966
+        ],
+        "stiffness": 0.0,
+        "damping": 0.001
+      }
+    ],
+    "source_file": "object_16.glb",
+    "source_sha256": "777c34dc32d6e4f00012b37b68c541799bb26fa655c7e38f488ad5f2cdb3f66a",
+    "calibrated_to_user_hardware": false,
+    "robot_contact_verified": false,
+    "gallery_prim": "/World/Controls/object_16",
+    "gallery_position": [
+      0.0,
+      0.18,
+      0.77
+    ],
+    "fixture_validation": {
+      "cycles": 5,
+      "passed": true,
+      "solver": "TGS",
+      "physics_Hz": 240
+    }
+  },
+  {
+    "kind": "plate",
+    "segmentation": "geometry transfer from object_14; approximate reconstructed parts",
+    "conductor": "rebuilt reference bridge; source central red part retained as insulated grip",
+    "pivot": [
+      0.0,
+      3.229389632548006e-05,
+      -0.028629531536200896
+    ],
+    "stud_pitch_m": 0.05772836349168317,
+    "reference_dimensions": [
+      0.05687367077053493,
+      0.02802980298488679,
+      0.08
+    ],
+    "id": "object_111",
+    "usd": "object_111.usda",
+    "root_prim": "/Asset",
+    "joints": [
+      {
+        "name": "upper_slide",
+        "type": "prismatic",
+        "limits": [
+          0.0,
+          0.0025
+        ],
+        "stiffness": 20000.0,
+        "damping": 5.0
+      },
+      {
+        "name": "upper_turn",
+        "type": "revolute",
+        "limits": [
+          0.0,
+          15.707963267948966
+        ],
+        "stiffness": 0.0,
+        "damping": 0.001
+      },
+      {
+        "name": "lower_slide",
+        "type": "prismatic",
+        "limits": [
+          0.0,
+          0.0025
+        ],
+        "stiffness": 20000.0,
+        "damping": 5.0
+      },
+      {
+        "name": "lower_turn",
+        "type": "revolute",
+        "limits": [
+          0.0,
+          15.707963267948966
+        ],
+        "stiffness": 0.0,
+        "damping": 0.001
+      },
+      {
+        "name": "bridge_swing",
+        "type": "revolute",
+        "limits": [
+          0.0,
+          1.5707963267948966
+        ],
+        "stiffness": 0.0,
+        "damping": 0.001
+      }
+    ],
+    "source_file": "object_111.glb",
+    "source_sha256": "2ce992d31648100c992c2a3c3e796c788cf9a6bd2e8a654a15599d79495a0ed2",
+    "calibrated_to_user_hardware": false,
+    "robot_contact_verified": false,
+    "gallery_prim": "/World/Controls/object_111",
+    "gallery_position": [
+      0.0,
+      0.36,
+      0.77
+    ],
+    "fixture_validation": {
+      "cycles": 5,
+      "passed": true,
+      "solver": "TGS",
+      "physics_Hz": 240
+    }
+  }
+]

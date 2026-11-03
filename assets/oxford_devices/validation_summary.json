@@ -1,0 +1,49 @@
+{
+  "isaac_sim": "6.2.0.0",
+  "physics": "PhysX",
+  "date": "2026-10-30",
+  "source_revision": "3a5b26c785709ffb88048c917d6de84d234bce72",
+  "source_hashes_verified": 22,
+  "relocation_check": true,
+  "assets": [
+    {
+      "id": "e_stop_button",
+      "moving_joints": 2,
+      "collision_shapes": 3,
+      "size_m": [
+        0.05999999865889549,
+        0.05999999865889549,
+        0.07500000058859588
+      ]
+    },
+    {
+      "id": "isolator_switch",
+      "moving_joints": 1,
+      "collision_shapes": 3,
+      "size_m": [
+        0.06499999761581421,
+        0.06499999761581421,
+        0.05299999927729368
+      ]
+    },
+    {
+      "id": "safety_switch",
+      "moving_joints": 1,
+      "collision_shapes": 3,
+      "size_m": [
+        0.18799997121095657,
+        0.28999999165534973,
+        0.2023185188727494
+      ]
+    }
+  ],
+  "cycles_passed": 9,
+  "cycles_total": 9,
+  "method": "switches: temporary position drive; e-stop: joint effort fixture; no human contact",
+  "direct_effort_test_for_switches": "not passed; requires further diagnosis; do not infer human contact readiness",
+  "human_contact_verified": false,
+  "force_calibrated": false,
+  "results": "../../outputs/oxford_migration/validation.json",
+  "http_setup_status_verified": true,
+  "http_test_port": 18766
+}

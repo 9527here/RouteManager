@@ -1,0 +1,131 @@
+{
+  "total_action_types": 11,
+  "total_actions": 22,
+  "directly_executable_new_actions": 0,
+  "geometry_candidate_actions": 8,
+  "semantic_confirmation_actions": 4,
+  "missing_mechanism_actions": 10,
+  "rows": [
+    {
+      "type_id": "1",
+      "actions": [
+        "1-1",
+        "1-2"
+      ],
+      "task": "切换开关：远方/就地",
+      "status": "semantic_confirmation",
+      "assets": "010",
+      "required": "两个旋钮样式件可作候选；需确认功能与两档角度、定位/保持。"
+    },
+    {
+      "type_id": "2",
+      "actions": [
+        "2-1",
+        "2-2"
+      ],
+      "task": "分合闸转换开关：合闸/分闸",
+      "status": "semantic_confirmation",
+      "assets": "010",
+      "required": "旋钮几何可作候选，不能凭外观认定其控制合分闸。"
+    },
+    {
+      "type_id": "3",
+      "actions": [
+        "3-1",
+        "3-2"
+      ],
+      "task": "旋钮：目标档/回初始档",
+      "status": "geometry_candidate",
+      "assets": "010",
+      "required": "分离旋钮帽与底座，补转轴、碰撞、限位、档位及实际状态读取。"
+    },
+    {
+      "type_id": "4",
+      "actions": [
+        "4-1",
+        "4-2"
+      ],
+      "task": "按钮与灯：按下/复位",
+      "status": "geometry_candidate",
+      "assets": "010；002/004/006备选",
+      "required": "先确认圆件哪些是按钮/灯；补独立按钮帽、直线关节、回位、发光及逻辑映射。"
+    },
+    {
+      "type_id": "5",
+      "actions": [
+        "5-1",
+        "5-2"
+      ],
+      "task": "按钮面板：指定按钮/复位",
+      "status": "geometry_candidate",
+      "assets": "010优先；002/006备选",
+      "required": "补目标ID、可移动按钮帽、误触判定与输出状态；源资产不加额外铭牌。"
+    },
+    {
+      "type_id": "6",
+      "actions": [
+        "6-1",
+        "6-2"
+      ],
+      "task": "螺丝压板：投出/投入",
+      "status": "missing_mechanism",
+      "assets": "无",
+      "required": "未发现螺母/螺柱/压板/端子座装配；需补完整机构。"
+    },
+    {
+      "type_id": "7",
+      "actions": [
+        "7-1",
+        "7-2"
+      ],
+      "task": "提拉压板：提起/落回",
+      "status": "missing_mechanism",
+      "assets": "无",
+      "required": "未发现提拉件/导向/孔位/摆动机构；009的提手不是提拉压板。"
+    },
+    {
+      "type_id": "8",
+      "actions": [
+        "8-1",
+        "8-2"
+      ],
+      "task": "复合急停：操作/复位",
+      "status": "missing_mechanism",
+      "assets": "无",
+      "required": "未发现文档要求的外圈旋转+中心按压双部件急停装置。"
+    },
+    {
+      "type_id": "9",
+      "actions": [
+        "9-1",
+        "9-2"
+      ],
+      "task": "断路器：合闸/分闸",
+      "status": "missing_mechanism",
+      "assets": "无独立机构",
+      "required": "整柜或操作口外观不能替代断路器本体、手柄/按钮、状态机构。"
+    },
+    {
+      "type_id": "10",
+      "actions": [
+        "10-1",
+        "10-2"
+      ],
+      "task": "锁孔：解锁/锁紧",
+      "status": "missing_mechanism",
+      "assets": "柜门把手只有外观线索",
+      "required": "缺匹配工具、锁芯/锁舌/锁扣及装配配合，不能模拟文档的插入旋转和锁紧。"
+    },
+    {
+      "type_id": "11",
+      "actions": [
+        "11-1",
+        "11-2"
+      ],
+      "task": "柜门：开门/关门",
+      "status": "geometry_candidate",
+      "assets": "001/005/010优先；其它柜体备选",
+      "required": "需要拆门/柜壳、补内腔/铰链/把手碰撞；简化实心盒不能直接当开门机构。"
+    }
+  ]
+}
