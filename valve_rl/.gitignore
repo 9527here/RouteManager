@@ -1,0 +1,5 @@
+logs/
+__pycache__/
+*.pt
+*.egg-info/
+font_atlas.png

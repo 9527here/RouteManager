@@ -1,5 +1,7 @@
 # Memory Index
 
+- [Isaac Lab 阀门 RL 四条结论](isaaclab-valve-rl-findings.md) — **RL 对采数据不划算**（两版都卡在平台期，只会悬停 0.22m）；actuator 增益必须读 gains.json（lift 标定 182356，写零刚度整机塌陷）；夹爪 12 关节 mimic 链 ±1/-0.15；训练必调 handle_deprecated_rsl_rl_cfg 且导入必须在 launch_simulation 之后；**PhysX 雅可比是连杆质心的不是 TCP 的**，拿它做 IK 会越走越远
+
 - [SimScene当前会话资产工具](simscene-attached-tools.md) — 34个MCP工具、资产搜索与静态层导入/移除/侵入拒绝通过；原PID/96形状/原生参数保持，不启动独立worker。
 
 - [SimPeople附着单人巡检](simpeople-attached-patrol.md) — 原会话单人两点与原地阀门并行通过；完整Start事件与零时间范围坑、取消/卸载验收、重复动作选连续IK分支，冷启动仅语法检查。
