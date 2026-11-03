@@ -143,11 +143,13 @@ outputs/                   本机运行、采集与证据；不上传
 ```
 
 ```bash
-# 离线回归，不启动Kit；部分模型回归需要本机URDF/标定输入
+# 离线回归，不启动Kit；缺少未分发的模型/现场输入时会明确skip
 env -u PYTHONPATH -u LD_LIBRARY_PATH /path/to/isaac/python \
   -m unittest discover -s tests -p 'test_*.py'
 python3 standalone_server.py --demo      # 假执行器，仅验证HTTP框架
 ```
+
+本机完整模型输入下192项通过；不带私有资产/运行记录的新克隆烟测为168项、2个模型fixture组明确跳过。严格模式和依赖范围见[测试说明](tests/README.md)。
 
 离线回归、仿真反馈、完整任务与真机验证分别验收；发布训练数据前检查记录的执行模式与失败标记。[目录指南](docs/项目目录与文件管理.md)说明代码和产物管理，Agent约束统一在[AGENTS.md](AGENTS.md)，操作说明从[文档导航](docs/README.md)进入。
 

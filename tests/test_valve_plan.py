@@ -5,7 +5,7 @@
 历史快照仅作模型一致性回归，构造的坐标变化不能当作现场量测或避碰证据。
 """
 
-from _bootstrap import ROOT as _TEST_ROOT  # 统一离线测试的项目/工具导入路径
+from _bootstrap import ROOT as _TEST_ROOT, require_model_fixture
 import copy
 import json
 import math
@@ -27,8 +27,9 @@ from valve_plan import PlanningError, ValvePlanner, axis_rotation, grasp_rotatio
 class ValvePlanRegression(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.snapshot = json.loads((REPO / 'outputs/valve_ik_20261102/input.json').read_text())
+        cls.snapshot = json.loads(require_model_fixture(REPO / 'outputs/valve_ik_20261102/input.json').read_text())
         cfg = json.loads((REPO / 'config.json').read_text())
+        require_model_fixture(cfg['robot']['presets'][cfg['robot']['name']]['urdf_path'])
         cls.planner = ValvePlanner(cfg['robot']['presets'][cfg['robot']['name']]['urdf_path'])
         cls.preview = cls.planner.plan(cls.snapshot, body_xy=(.30, .15), lift_delta=-.20, roll_deg=0,
                                        allow_legacy_grasp_reference=True)
@@ -68,7 +69,7 @@ class ValvePlanRegression(unittest.TestCase):
         self.assertLess(np.linalg.norm(self.planner.tcp_offset(joint_positions=state) - measured), 1e-5)
 
     def test_narrow_lever_approach_and_full_release_use_their_own_tcp_offsets(self):
-        snapshot = json.loads((REPO / 'outputs/valve_sequence_20261103/run_154059/valve_3/snapshot.json').read_text())
+        snapshot = json.loads(require_model_fixture(REPO / 'outputs/valve_sequence_20261103/run_154059/valve_3/snapshot.json').read_text())
         before = copy.deepcopy(snapshot)
         plan = self.planner.plan(snapshot, roll_deg=270., angle=-90., grasp_axial_offset_m=.006,
                                  approach_open_margin_mm=8.)

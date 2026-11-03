@@ -6,7 +6,7 @@
 仿真量测证据。故障注入检查错误锚点和 dry-run 的禁止下发约束。
 """
 
-from _bootstrap import ROOT as _TEST_ROOT  # 统一离线测试的项目/工具导入路径
+from _bootstrap import ROOT as _TEST_ROOT, require_model_fixture
 import contextlib
 import copy
 import io
@@ -41,6 +41,7 @@ class ValveIKRegression(unittest.TestCase):
     def setUpClass(cls):
         with open(_REPO / "scripts/arm_calib.json") as f:
             calib = json.load(f)
+        require_model_fixture(calib["urdf"])
         cls.chain = arm_kin.load_chain(calib["urdf"], "right_arm_base_link",
                                       "right_gripper_base_link")
         cls.A, cls.b = np.array(calib["A"]), np.array(calib["b"])
