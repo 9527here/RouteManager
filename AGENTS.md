@@ -291,3 +291,9 @@ POST /python  {"code": "import importlib, robot_manager; importlib.reload(robot_
 - 旧`humanoid_upper_body_v3`完整包外置，原路径为本机软链接；不要把目标目录重新加进Git。
 - 17个离线回归模块集中到`tests/`；`scripts/validate_*.py`仍可能是原生验收/数据入口，先读源码再运行。
 - 代码、参数/来源清单与文档可提交；原CAD、GLB、转换缓存、纹理、录像与数据集按各自来源留在外部。
+
+## 现状与文档维护
+
+- `TODO.md`统一记录项目现状、待办ID、验收条件和证据；功能/缺口变化时同步更新，区分已发布与本机未提交研发。
+- 常用操作集中到`docs/README.md`使用手册；专题保留详细契约和历史日期，不在多处复制路线图。
+- 用户资产库通过`third_party/vla_assets`本机忽略链接访问，接入脚本不自动改配置或源文件；库登记见`third_party/libraries.json`。

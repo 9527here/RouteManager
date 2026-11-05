@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "libraries": [
+    {
+      "id": "vla_assets",
+      "kind": "local_directory",
+      "link_path": "third_party/vla_assets",
+      "root_env": "ROUTE_MANAGER_ASSET_ROOT",
+      "default_root": "~/datasets/vla_data",
+      "repository_url": null,
+      "revision": null,
+      "redistribution": "external_only",
+      "layers": ["L0_原始档案", "L1_制作资产", "L2_仿真运行", "L3_前端展示"],
+      "notes": "用户本机资产归档，尚无独立Git远端；逐资产许可证/版本待登记。"
+    },
+    {
+      "id": "oxford_devices",
+      "kind": "source_reference",
+      "repository_url": "https://github.com/ori-arg/manipulation_playground",
+      "revision": "3a5b26c785709ffb88048c917d6de84d234bce72",
+      "license": "BSD-3-Clause",
+      "entry": "assets/oxford_devices/provenance.json",
+      "acquire_command": "python3 scripts/fetch_oxford_devices.py --target assets/oxford_devices"
+    },
+    {
+      "id": "simpeople",
+      "kind": "tool_reference",
+      "repository_url": "https://github.com/ros-claw/simpeople",
+      "revision": "8b31548a680e7c2fd96c0cdb875d7856d16cb929",
+      "entry": "docs/SimPeople_场景附着与单人巡检.md",
+      "notes": "已验收版本记录，不自动安装或更新；人物资产另按来源管理。"
+    },
+    {
+      "id": "simscene",
+      "kind": "tool_reference",
+      "repository_url": "https://github.com/ros-claw/simscene",
+      "revision": "7a51df945d7010233023b8bfe3ca41aa1c1427ce",
+      "entry": "docs/SimScene_资产工具与当前场景接入.md",
+      "notes": "已验收版本记录，不自动安装或更新；本项目附着模式禁用独立worker。"
+    }
+  ]
+}

@@ -1,5 +1,7 @@
 # Memory Index
 
+- [文档、TODO与外部资产入口](documentation-todo-external-assets.md) — 单一现状/验收待办、连续手册与折叠参考；本机vla_data建忽略链接，路径解析/逐资产版本仍待完善。
+
 - [平台定位与源码整理](repository-layout-20261103.md) — Real→Sim→Real主线、旧资产外置与恢复、tests集中；192项严格回归/公开克隆烟测，保留双远端历史与并行新文件。
 
 - [Isaac Lab 阀门 RL 四条结论](isaaclab-valve-rl-findings.md) — **RL 对采数据不划算**（两版都卡在平台期，只会悬停 0.22m）；actuator 增益必须读 gains.json（lift 标定 182356，写零刚度整机塌陷）；夹爪 12 关节 mimic 链 ±1/-0.15；训练必调 handle_deprecated_rsl_rl_cfg 且导入必须在 launch_simulation 之后；**PhysX 雅可比是连杆质心的不是 TCP 的**，拿它做 IK 会越走越远
