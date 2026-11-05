@@ -1,6 +1,6 @@
 # Memory Index
 
-- [文档、TODO与外部资产入口](documentation-todo-external-assets.md) — 单一现状/验收待办、连续手册与折叠参考；本机vla_data建忽略链接，路径解析/逐资产版本仍待完善。
+- [文档、TODO与外部资产入口](documentation-todo-external-assets.md) — 用户再次反馈跳转多后，根README合并现状/资产/教程；TODO仅待办、docs仅参考；vla_data忽略链接保留，路径/版本仍待完善。
 
 - [平台定位与源码整理](repository-layout-20261103.md) — Real→Sim→Real主线、旧资产外置与恢复、tests集中；192项严格回归/公开克隆烟测，保留双远端历史与并行新文件。
 

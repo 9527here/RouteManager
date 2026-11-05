@@ -294,6 +294,7 @@ POST /python  {"code": "import importlib, robot_manager; importlib.reload(robot_
 
 ## 现状与文档维护
 
-- `TODO.md`统一记录项目现状、待办ID、验收条件和证据；功能/缺口变化时同步更新，区分已发布与本机未提交研发。
-- 常用操作集中到`docs/README.md`使用手册；专题保留详细契约和历史日期，不在多处复制路线图。
+- 根`README.md`统一项目现状、资产接入与常用教程；日常使用应能在一页顺读完成，不再另设一层使用手册。
+- `TODO.md`只维护待办ID、验收条件与证据；功能/缺口变化时更新，区分已发布与本机未提交研发。
+- `docs/README.md`仅作详细契约与历史资料索引，放在README末尾折叠参考中，不复制现状和教程。
 - 用户资产库通过`third_party/vla_assets`本机忽略链接访问，接入脚本不自动改配置或源文件；库登记见`third_party/libraries.json`。
