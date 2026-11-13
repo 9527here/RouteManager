@@ -49,8 +49,8 @@ assets/deliver/
 # Isaac 字体图集（--/app/font/saveAtlas=1 时生成在仓库根，20MB+）
 font_atlas.png
 
-# SimPeople人物缓存另放外部checkout；本地演示录像、轨迹与USD覆盖层不入库。
-/outputs/
+# 本机outputs已外置到数据盘；不加末尾斜杠，同时忽略目录和软链接。
+/outputs
 
 # 完整旧机器人包移至外部资产目录；本机保留同名软链接，恢复入口见assets/README.md。
 /humanoid_upper_body_v3

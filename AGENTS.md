@@ -287,10 +287,25 @@ POST /python  {"code": "import importlib, robot_manager; importlib.reload(robot_
 ## 源码与本机产物（2026-11-03整理）
 
 - 目录与资产管理见`docs/项目目录与文件管理.md`、`assets/README.md`。
-- `outputs/`保持本机原位且不上传；不要清理活动USD引用和失败证据。
+- `outputs/`保留原访问路径，真实数据已外置并通过本机软链访问（见下）；不要清理活动USD引用和失败证据。
 - 旧`humanoid_upper_body_v3`完整包外置，原路径为本机软链接；不要把目标目录重新加进Git。
 - 17个离线回归模块集中到`tests/`；`scripts/validate_*.py`仍可能是原生验收/数据入口，先读源码再运行。
 - 代码、参数/来源清单与文档可提交；原CAD、GLB、转换缓存、纹理、录像与数据集按各自来源留在外部。
+
+### outputs 外置与软链保护（2026-11-12迁移）
+
+本机固定映射为：
+
+```text
+/home/jy/RouteManager/outputs -> /home/jy/datasets/vla_data/RouteManager/outputs
+```
+
+- 原目录的数据已迁移到上述目标。以后继续向`/home/jy/RouteManager/outputs/`写入，新文件和子目录自动落在数据盘，无需修改现有脚本的输出路径。
+- **必须保留这个软链，不得删除、解链或重新建成普通目录**；清理、部署和启动脚本必须识别并保留它。不得把它当迁移残留或缓存入口清除。
+- 检查时使用`test -L /home/jy/RouteManager/outputs`和`readlink /home/jy/RouteManager/outputs`。目标不可达时，先检查`/home/jy/datasets/vla_data`是否已正确挂载；悬空软链不能当作“目录不存在”而删除后重建。
+- 只有确认数据盘及目标目录可用、原入口确实不存在（既非已有文件/目录，也非悬空软链）时，才可恢复上述映射。已有普通目录或指向不同目标的链接须先核对内容，禁止强制覆盖。
+- `.gitignore`使用`/outputs`（无末尾斜杠）同时忽略普通目录和软链；软链本身、目标数据都不入Git。清理时保护此入口，禁止用`git clean -fdx`等会清除忽略项的操作删除它。
+- 迁移时为不中断后台写入，3份日志通过目标内的链接指回`/home/jy/data/repo-backups/RouteManager/outputs-live-logs-20261112_144111/`。这些文件仍由链接引用，清理该备份目录前必须核验并妥善迁移日志，不能直接删除。
 
 ## 现状与文档维护
 
